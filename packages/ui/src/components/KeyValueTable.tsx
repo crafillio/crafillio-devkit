@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import type { KeyValue } from '@crafillio/core';
 import { blankRow, withTrailingBlank } from '../lib/defaults';
+import { COMMON_HEADERS, HEADER_NAME_LIST, valuesFor } from '../lib/headers';
 
 interface Props {
   rows: KeyValue[];
@@ -9,6 +10,8 @@ interface Props {
   valuePlaceholder?: string;
   /** Hides the value column for tables that only collect names. */
   valueLabel?: string;
+  /** Offers header-name and header-value completion. */
+  autocomplete?: 'headers' | false;
 }
 
 /**
@@ -21,6 +24,7 @@ export function KeyValueTable({
   keyPlaceholder = 'Key',
   valuePlaceholder = 'Value',
   valueLabel = 'Value',
+  autocomplete = false,
 }: Props) {
   const display = withTrailingBlank(rows, blankRow);
 
@@ -35,7 +39,16 @@ export function KeyValueTable({
   };
 
   return (
-    <table className="kv">
+    <>
+      {autocomplete === 'headers' && (
+        // One shared list for every name field in the table.
+        <datalist id={HEADER_NAME_LIST}>
+          {COMMON_HEADERS.map((name) => (
+            <option key={name} value={name} />
+          ))}
+        </datalist>
+      )}
+      <table className="kv">
       <thead>
         <tr>
           <th style={{ width: 34 }} />
@@ -65,6 +78,9 @@ export function KeyValueTable({
                   className="kv-input"
                   value={row.key}
                   placeholder={keyPlaceholder}
+                  list={autocomplete === 'headers' ? HEADER_NAME_LIST : undefined}
+                  autoComplete="off"
+                  spellCheck={false}
                   onChange={(e) => update(row.id, { key: e.target.value })}
                 />
               </td>
@@ -73,8 +89,23 @@ export function KeyValueTable({
                   className="kv-input"
                   value={row.value}
                   placeholder={valuePlaceholder}
+                  // Value suggestions depend on the name typed in this row.
+                  list={
+                    autocomplete === 'headers' && valuesFor(row.key).length
+                      ? `${HEADER_NAME_LIST}-v-${row.id}`
+                      : undefined
+                  }
+                  autoComplete="off"
+                  spellCheck={false}
                   onChange={(e) => update(row.id, { value: e.target.value })}
                 />
+                {autocomplete === 'headers' && valuesFor(row.key).length > 0 && (
+                  <datalist id={`${HEADER_NAME_LIST}-v-${row.id}`}>
+                    {valuesFor(row.key).map((value) => (
+                      <option key={value} value={value} />
+                    ))}
+                  </datalist>
+                )}
               </td>
               <td className="kv-remove">
                 {!isTrailing && (
@@ -92,6 +123,7 @@ export function KeyValueTable({
           );
         })}
       </tbody>
-    </table>
+      </table>
+    </>
   );
 }

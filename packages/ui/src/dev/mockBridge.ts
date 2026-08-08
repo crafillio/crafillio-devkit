@@ -263,6 +263,13 @@ export function installMockBridge(): void {
         fontSize: 13,
         keepHistory: true,
         secretStorage: 'keyfile',
+        proxy: {
+          enabled: false, protocol: 'http', host: '', port: 8080,
+          forHttp: true, forHttps: true,
+          auth: { enabled: false, username: '', password: '' },
+          bypass: ['localhost', '127.0.0.1', '::1'],
+        },
+        tls: { verify: true, caPath: '', certificates: [] },
       };
       return {
         load: async () => current,

@@ -334,7 +334,7 @@ header.top{
 }
 .top-inner{max-width:var(--maxw);margin:0 auto;padding:14px 28px;display:flex;align-items:center;gap:14px}
 .brand{display:flex;align-items:center;gap:11px;font-family:var(--font-display);font-weight:600;font-size:17px;letter-spacing:-0.02em}
-.brand-accent{background:linear-gradient(96deg,var(--rest),var(--grpc) 52%,var(--s3));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-weight:700}
+.brand-accent{color:var(--accent);font-weight:700}
 .spacer{flex:1}
 .toggle{display:flex;gap:2px;padding:3px;background:var(--surface-2);border:1px solid var(--border);border-radius:999px}
 .toggle button{padding:5px 13px;border:none;background:none;border-radius:999px;color:var(--text-dim);font-family:inherit;font-size:12.5px;cursor:pointer;transition:all var(--fast) var(--ease)}
@@ -418,7 +418,7 @@ td.use{color:var(--text-dim);font-size:12.5px}
 
 .btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:var(--font-ui);font-size:12.5px;font-weight:500;cursor:pointer;box-shadow:var(--inset-hi)}
 .btn:hover{background:var(--surface-3);border-color:var(--border-strong)}
-.btn-primary{background:linear-gradient(180deg,var(--accent-hover),var(--accent-fill));border-color:var(--accent-press);color:var(--on-accent);font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.2),var(--shadow-sm)}
+.btn-primary{background:var(--accent-fill);border-color:var(--accent-press);color:var(--on-accent);font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.2),var(--shadow-sm)}
 .btn-danger{color:var(--red)}
 .btn-ghost{background:none;border-color:transparent;box-shadow:none}
 .btn:disabled{opacity:.42;cursor:not-allowed}
@@ -475,14 +475,14 @@ footer a:hover{text-decoration:underline}
 <header class="top">
   <div class="top-inner">
     <div class="brand">
-      <svg width="26" height="26" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-        <defs><linearGradient id="t" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stop-color="#e4007f"/><stop offset="55%" stop-color="#b5008f"/><stop offset="100%" stop-color="#6a3fd6"/>
-        </linearGradient></defs>
-        <rect width="48" height="48" rx="12" fill="url(#t)"/>
-        <path d="M13 17.5 L20.5 24 L13 30.5" stroke="#ffffff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>
-        <rect x="24.5" y="27.6" width="12" height="3.4" rx="1.7" fill="#ffffff" opacity=".92"/>
-        <circle cx="30.6" cy="18.4" r="2.5" fill="#ffffff" opacity=".92"/>
+      <svg width="26" height="26" viewBox="0 0 48 48" fill="currentColor" aria-hidden="true" style="color:var(--accent)">
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M 21.24 14.52 L 21.51 12.37 A 11.4 11.4 0 0 1 26.49 12.37 L 26.76 14.52 A 9.4 9.4 0 0 1 28.40 15.19 L 30.11 13.87 A 11.4 11.4 0 0 1 33.63 17.39 L 32.31 19.10 A 9.4 9.4 0 0 1 32.98 20.74 L 35.13 21.01 A 11.4 11.4 0 0 1 35.13 25.99 L 32.98 26.26 A 9.4 9.4 0 0 1 32.31 27.90 L 33.63 29.61 A 11.4 11.4 0 0 1 30.11 33.13 L 28.40 31.81 A 9.4 9.4 0 0 1 26.76 32.48 L 26.49 34.63 A 11.4 11.4 0 0 1 21.51 34.63 L 21.24 32.48 A 9.4 9.4 0 0 1 19.60 31.81 L 17.89 33.13 A 11.4 11.4 0 0 1 14.37 29.61 L 15.69 27.90 A 9.4 9.4 0 0 1 15.02 26.26 L 12.87 25.99 A 11.4 11.4 0 0 1 12.87 21.01 L 15.02 20.74 A 9.4 9.4 0 0 1 15.69 19.10 L 14.37 17.39 A 11.4 11.4 0 0 1 17.89 13.87 L 19.60 15.19 A 9.4 9.4 0 0 1 21.24 14.52 Z M 30.9 23.5 A 6.9 6.9 0 1 0 17.1 23.5 A 6.9 6.9 0 1 0 30.9 23.5 Z"/>
+        <circle cx="5.9" cy="13.88" r="3.6"/><line x1="15.17" y1="18.81" x2="8.6" y2="15.32" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+        <circle cx="4.5" cy="23.5" r="3.3"/><line x1="14" y1="23.5" x2="7.3" y2="23.5" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+        <circle cx="9.14" cy="36.88" r="3.4"/><line x1="16.57" y1="30.19" x2="11.29" y2="34.95" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+        <circle cx="42.1" cy="13.88" r="3.6"/><line x1="32.83" y1="18.81" x2="39.4" y2="15.32" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+        <circle cx="38.86" cy="36.88" r="3.4"/><line x1="31.43" y1="30.19" x2="36.71" y2="34.95" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+        <text x="24" y="23.5" text-anchor="middle" dominant-baseline="central" font-family="var(--font-display)" font-size="6.6" font-weight="700">API</text>
       </svg>
       API <span class="brand-accent">Devkit</span>
     </div>

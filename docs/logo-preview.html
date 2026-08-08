@@ -1,0 +1,43 @@
+<!doctype html><html><head><meta charset="utf-8"><title>API Devkit mark</title>
+<style>
+body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:#f2f3f6;color:#14151a}
+.row{display:flex;gap:36px;align-items:flex-end;padding:32px 36px;flex-wrap:wrap}
+.dark{background:#0d0e12;color:#ecedf1}
+.item{display:flex;flex-direction:column;align-items:center;gap:8px}
+small{font-size:11px;opacity:.6;font-family:ui-monospace,monospace}
+h3{margin:0;padding:22px 36px 0;font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.55}
+.brand{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:600;letter-spacing:-.02em}
+.acc{color:#c2006c;font-weight:700}
+.dark .acc{color:#ff5fae}
+</style></head><body>
+<h3>Light — magenta</h3>
+<div class="row" style="color:#c2006c">
+  <div class="item"><span id="s96"></span><small>96</small></div>
+  <div class="item"><span id="s48"></span><small>48</small></div>
+  <div class="item"><span id="s28"></span><small>28</small></div>
+  <div class="item"><span id="s22"></span><small>22 (title bar)</small></div>
+  <div class="item"><span id="s16"></span><small>16 (letters dropped)</small></div>
+</div>
+<h3 style="color:#14151a">Light — in the wordmark</h3>
+<div class="row"><div class="brand" style="color:#14151a"><span id="w1" style="color:#c2006c;display:flex"></span> API <span class="acc">Devkit</span></div></div>
+<div class="dark"><h3>Dark</h3>
+<div class="row" style="color:#ff5fae">
+  <div class="item"><span id="d96"></span><small>96</small></div>
+  <div class="item"><span id="d48"></span><small>48</small></div>
+  <div class="item"><span id="d28"></span><small>28</small></div>
+</div>
+<div class="row"><div class="brand"><span id="w2" style="color:#ff5fae;display:flex"></span> API <span class="acc">Devkit</span></div></div>
+</div>
+<script>
+const GEAR='M 21.24 14.52 L 21.51 12.37 A 11.4 11.4 0 0 1 26.49 12.37 L 26.76 14.52 A 9.4 9.4 0 0 1 28.40 15.19 L 30.11 13.87 A 11.4 11.4 0 0 1 33.63 17.39 L 32.31 19.10 A 9.4 9.4 0 0 1 32.98 20.74 L 35.13 21.01 A 11.4 11.4 0 0 1 35.13 25.99 L 32.98 26.26 A 9.4 9.4 0 0 1 32.31 27.90 L 33.63 29.61 A 11.4 11.4 0 0 1 30.11 33.13 L 28.40 31.81 A 9.4 9.4 0 0 1 26.76 32.48 L 26.49 34.63 A 11.4 11.4 0 0 1 21.51 34.63 L 21.24 32.48 A 9.4 9.4 0 0 1 19.60 31.81 L 17.89 33.13 A 11.4 11.4 0 0 1 14.37 29.61 L 15.69 27.90 A 9.4 9.4 0 0 1 15.02 26.26 L 12.87 25.99 A 11.4 11.4 0 0 1 12.87 21.01 L 15.02 20.74 A 9.4 9.4 0 0 1 15.69 19.10 L 14.37 17.39 A 11.4 11.4 0 0 1 17.89 13.87 L 19.60 15.19 A 9.4 9.4 0 0 1 21.24 14.52 Z M 30.9 23.5 A 6.9 6.9 0 1 0 17.1 23.5 A 6.9 6.9 0 1 0 30.9 23.5 Z';
+const N=[[5.9,13.88,3.6,15.17,18.81,8.6,15.32],[4.5,23.5,3.3,14,23.5,7.3,23.5],[9.14,36.88,3.4,16.57,30.19,11.29,34.95],[42.1,13.88,3.6,32.83,18.81,39.4,15.32],[38.86,36.88,3.4,31.43,30.19,36.71,34.95]];
+function mk(size){
+  const compact = size < 30;
+  let s=`<svg width="${size}" height="${size}" viewBox="${compact?'11.8 11.3 24.4 24.4':'0 0 48 48'}" fill="currentColor"><path fill-rule="evenodd" d="${GEAR}"/>`;
+  if(!compact) for(const [cx,cy,r,x1,y1,x2,y2] of N) s+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="${r}"/>`;
+  s+=`<text x="24" y="23.5" text-anchor="middle" dominant-baseline="central" font-family="system-ui" font-size="6.6" font-weight="700" letter-spacing="-0.2">API</text>`;
+  return s+'</svg>';
+}
+for(const [id,sz] of [['s96',96],['s48',48],['s28',28],['s22',22],['s16',16],['d96',96],['d48',48],['d28',28],['w1',26],['w2',26]])
+  document.getElementById(id).innerHTML=mk(sz);
+</script></body></html>

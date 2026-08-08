@@ -457,13 +457,6 @@ function Chart({ buckets }: { buckets: TimeBucket[] }) {
         preserveAspectRatio="none"
         className="chart-svg"
       >
-        <defs>
-          <linearGradient id="rps-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.28" />
-            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-
         {[0.25, 0.5, 0.75].map((fraction) => (
           <line
             key={fraction}
@@ -488,7 +481,8 @@ function Chart({ buckets }: { buckets: TimeBucket[] }) {
           />
         ))}
 
-        <polygon points={geometry.area} fill="url(#rps-fill)" />
+        {/* Flat translucent fill — the design uses no gradients. */}
+        <polygon points={geometry.area} fill="var(--accent)" fillOpacity="0.14" />
         <polyline
           points={geometry.rpsPoints}
           fill="none"

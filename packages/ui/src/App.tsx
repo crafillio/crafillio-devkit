@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Info, Layers, Plus, Save, Terminal, Workflow as WorkflowIcon, X } from 'lucide-react';
+import { Globe, Info, Layers, Plus, Save, Terminal, Workflow as WorkflowIcon, X } from 'lucide-react';
 import type { GrpcEvent, SavedRequest } from '@crafillio/core';
 import { Sidebar } from './components/Sidebar';
 import { RestPanel } from './components/RestPanel';
@@ -12,6 +12,7 @@ import { AboutModal } from './components/AboutModal';
 import { DialogHost } from './components/DialogHost';
 import { Logo } from './components/Logo';
 import { ThemeToggle } from './components/ThemeToggle';
+import { NetworkModal } from './components/NetworkModal';
 import { Toasts } from './components/Toasts';
 import { useActiveTab, useStore, type GrpcTab, type RestTab } from './state/store';
 import { uid } from './lib/defaults';
@@ -23,6 +24,7 @@ export function App() {
 
   const [showEnvs, setShowEnvs] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [showNetwork, setShowNetwork] = useState(false);
   const [connectionModal, setConnectionModal] = useState<{ id: string | null } | null>(null);
 
   /*
@@ -322,6 +324,14 @@ export function App() {
           <Layers size={15} />
         </button>
 
+        <button
+          className="btn btn-icon"
+          onClick={() => setShowNetwork(true)}
+          title="Proxy and TLS settings"
+        >
+          <Globe size={15} />
+        </button>
+
         <ThemeToggle />
 
         <button className="btn btn-icon" onClick={() => setShowAbout(true)} title="About">
@@ -406,6 +416,7 @@ export function App() {
 
       {showEnvs && <EnvironmentsModal onClose={() => setShowEnvs(false)} />}
       {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
+      {showNetwork && <NetworkModal onClose={() => setShowNetwork(false)} />}
       {connectionModal && (
         <ConnectionModal
           connectionId={connectionModal.id}

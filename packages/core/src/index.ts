@@ -3,7 +3,20 @@
 export * from './types.js';
 export * from './vars.js';
 
-export { sendRest, closeRestAgents } from './protocols/rest.js';
+export {
+  sendRest,
+  closeRestAgents,
+  setNetworkPolicy,
+  getNetworkPolicy,
+  type NetworkPolicy,
+} from './protocols/rest.js';
+export {
+  isBypassed,
+  certificateFor,
+  type ProxySettings,
+  type TlsSettings,
+  type ClientCertificate,
+} from './store/settings.js';
 export { invokeGrpc, describeGrpc, clearSchemaCache, type GrpcCall } from './protocols/grpc.js';
 export { statusName } from './protocols/grpc-target.js';
 

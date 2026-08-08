@@ -39,6 +39,7 @@ import {
   s3,
   secretsAvailable,
   sendRest,
+  setNetworkPolicy,
   settings,
   CRAFILLIO_HOME,
   type GrpcCall,
@@ -316,7 +317,15 @@ function registerHandlers(): void {
 
   /* Settings */
   handle('settings:load', settings.loadSettings);
-  handle('settings:save', settings.saveSettings);
+
+  handle('settings:save', async (patch: Parameters<typeof settings.saveSettings>[0]) => {
+    const merged = await settings.saveSettings(patch);
+    // Proxy and TLS are held in the engine, so they must be re-applied the
+    // moment they change rather than at next launch.
+    setNetworkPolicy({ proxy: merged.proxy, tls: merged.tls });
+    if (patch.secretStorage) await wireSecretProvider();
+    return merged;
+  });
 
   /* Load testing */
   handle('perf:start', async (target: LoadTarget, profile: LoadProfile) => {
@@ -613,6 +622,10 @@ if (!app.requestSingleInstanceLock()) {
   void app.whenReady().then(async () => {
     await ensureHome();
     await wireSecretProvider();
+
+    // Apply the saved proxy and TLS policy before the first request can fire.
+    const saved = await settings.loadSettings();
+    setNetworkPolicy({ proxy: saved.proxy, tls: saved.tls });
     registerHandlers();
     buildMenu();
     createWindow(await startupBackground());

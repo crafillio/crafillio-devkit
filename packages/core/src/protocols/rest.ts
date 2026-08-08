@@ -1,6 +1,14 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import { Agent, request as undiciRequest } from 'undici';
+import { readFileSync } from 'node:fs';
+import { Agent, ProxyAgent, request as undiciRequest, type Dispatcher } from 'undici';
+import {
+  certificateFor,
+  isBypassed,
+  type ClientCertificate,
+  type ProxySettings,
+  type TlsSettings,
+} from '../store/settings.js';
 import type {
   Auth,
   KeyValue,
@@ -9,28 +17,125 @@ import type {
   RestResponse,
 } from '../types.js';
 
-/** Agents are pooled per TLS policy so we don't rebuild a connection pool per send. */
-const agents = new Map<string, Agent>();
+/**
+ * Network policy applied to every request: proxying and TLS trust.
+ *
+ * Injected by the shell from settings rather than read here, because core must
+ * not depend on where configuration lives.
+ */
+export interface NetworkPolicy {
+  proxy?: ProxySettings;
+  tls?: TlsSettings;
+}
 
-function agentFor(insecureTls: boolean, timeoutMs: number): Agent {
-  const key = `${insecureTls}:${timeoutMs}`;
-  let agent = agents.get(key);
-  if (!agent) {
-    agent = new Agent({
-      connect: { rejectUnauthorized: !insecureTls },
-      // 0 means "no timeout" to us, but undici wants undefined for that.
-      headersTimeout: timeoutMs || undefined,
-      bodyTimeout: timeoutMs || undefined,
-    });
-    agents.set(key, agent);
+let policy: NetworkPolicy = {};
+
+export function setNetworkPolicy(next: NetworkPolicy): void {
+  policy = next;
+  // Pooled agents captured the old proxy and trust settings, so they must go.
+  void closeRestAgents();
+}
+
+export function getNetworkPolicy(): NetworkPolicy {
+  return policy;
+}
+
+/** Reads a PEM/PFX file, turning an unreadable path into an actionable error. */
+function readCertFile(path: string, label: string): Buffer {
+  try {
+    return readFileSync(path);
+  } catch (err) {
+    throw new Error(`Could not read ${label} at ${path}: ${(err as Error).message}`);
   }
+}
+
+/** TLS material for a host: trust anchors plus any client certificate. */
+function tlsOptionsFor(host: string, insecureTls: boolean): Record<string, unknown> {
+  const tls = policy.tls;
+  // A per-request override always wins over the global setting.
+  const verify = insecureTls ? false : (tls?.verify ?? true);
+  const options: Record<string, unknown> = { rejectUnauthorized: verify };
+
+  if (tls?.caPath) options.ca = readCertFile(tls.caPath, 'CA bundle');
+
+  const cert: ClientCertificate | undefined = certificateFor(host, tls?.certificates ?? []);
+  if (cert) {
+    if (cert.pfxPath) {
+      options.pfx = readCertFile(cert.pfxPath, 'client certificate (PFX)');
+    } else {
+      if (cert.certPath) options.cert = readCertFile(cert.certPath, 'client certificate');
+      if (cert.keyPath) options.key = readCertFile(cert.keyPath, 'client key');
+    }
+    if (cert.passphrase) options.passphrase = cert.passphrase;
+  }
+
+  return options;
+}
+
+/** Whether this URL should be proxied under the current policy. */
+function proxyFor(url: URL): ProxySettings | null {
+  const proxy = policy.proxy;
+  if (!proxy?.enabled || !proxy.host.trim()) return null;
+  if (isBypassed(url.hostname, proxy.bypass)) return null;
+  if (url.protocol === 'https:' && !proxy.forHttps) return null;
+  if (url.protocol === 'http:' && !proxy.forHttp) return null;
+  return proxy;
+}
+
+/** Agents are pooled per policy so we don't rebuild a connection pool per send. */
+const agents = new Map<string, Dispatcher>();
+
+function agentFor(url: URL, insecureTls: boolean, timeoutMs: number): Dispatcher {
+  const proxy = proxyFor(url);
+  const tls = policy.tls;
+  const cert = certificateFor(url.hostname, tls?.certificates ?? []);
+
+  // The key must cover everything that changes how a socket is made, or two
+  // different policies would share one pool.
+  const key = [
+    insecureTls,
+    timeoutMs,
+    proxy ? `${proxy.protocol}://${proxy.host}:${proxy.port}:${proxy.auth.enabled}` : 'direct',
+    tls?.verify ?? true,
+    tls?.caPath ?? '',
+    cert?.id ?? '',
+  ].join('|');
+
+  const existing = agents.get(key);
+  if (existing) return existing;
+
+  const connect = tlsOptionsFor(url.hostname, insecureTls);
+  // 0 means "no timeout" to us, but undici wants undefined for that.
+  const timeouts = {
+    headersTimeout: timeoutMs || undefined,
+    bodyTimeout: timeoutMs || undefined,
+  };
+
+  let agent: Dispatcher;
+  if (proxy) {
+    const token = proxy.auth.enabled
+      ? `Basic ${Buffer.from(`${proxy.auth.username}:${proxy.auth.password}`).toString('base64')}`
+      : undefined;
+    agent = new ProxyAgent({
+      uri: `${proxy.protocol}://${proxy.host}:${proxy.port}`,
+      token,
+      // Applies to the tunnelled connection, i.e. the real destination.
+      requestTls: connect as never,
+      ...timeouts,
+    });
+  } else {
+    agent = new Agent({ connect, ...timeouts });
+  }
+
+  agents.set(key, agent);
   return agent;
 }
 
-/** Release pooled sockets. Called when the app quits. */
+/** Release pooled sockets. Called when the app quits or policy changes. */
 export async function closeRestAgents(): Promise<void> {
-  await Promise.all([...agents.values()].map((a) => a.close()));
+  const open = [...agents.values()];
   agents.clear();
+  await Promise.all(open.map((a) => a.close().catch(() => undefined)));
 }
 
 function enabled(rows: KeyValue[]): KeyValue[] {
@@ -218,7 +323,7 @@ export async function sendRest(req: RestRequest): Promise<RestResponse> {
         headers,
         body: payload,
         signal: controller.signal,
-        dispatcher: agentFor(req.insecureTls, req.timeoutMs),
+        dispatcher: agentFor(url, req.insecureTls, req.timeoutMs),
         // undici does not follow redirects unless a RedirectHandler is attached,
         // which is what we want — the hop chain is walked manually below so it
         // can be reported back to the user.
@@ -294,6 +399,9 @@ function describeNetworkError(err: Error & { code?: string }, url: URL): string 
       return `TLS certificate not trusted for ${url.host}. Enable "Ignore TLS errors" to continue anyway.`;
     case 'ERR_TLS_CERT_ALTNAME_INVALID':
       return `TLS certificate does not match ${url.hostname}.`;
+    case 'ERR_PROXY_CONNECT':
+    case 'UND_ERR_PROXY':
+      return `Could not reach the proxy. Check the proxy settings.`;
     default:
       return err.message || String(err);
   }

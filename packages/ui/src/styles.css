@@ -267,13 +267,8 @@ kbd {
   position: absolute;
   inset: auto 0 -1px 0;
   height: 1px;
-  background: linear-gradient(90deg,
-    transparent,
-    var(--accent-fill) 20%,
-    var(--rest) 50%,
-    var(--s3) 80%,
-    transparent);
-  opacity: 0.4;
+  background: var(--accent-fill);
+  opacity: 0.55;
 }
 
 .titlebar button,
@@ -294,10 +289,7 @@ kbd {
 }
 
 .brand-accent {
-  background: linear-gradient(96deg, var(--accent-fill), var(--rest) 60%, var(--s3));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--accent);
   font-weight: 700;
 }
 
@@ -703,7 +695,7 @@ kbd {
 }
 
 .btn-primary {
-  background: linear-gradient(180deg, var(--accent-hover), var(--accent-fill));
+  background: var(--accent-fill);
   border-color: var(--accent-press);
   color: var(--on-accent);
   font-weight: 600;
@@ -1688,9 +1680,6 @@ kbd {
   position: relative;
   overflow: auto;
   background: var(--bg);
-  /* A dot grid gives the drag a sense of place without competing with nodes. */
-  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
-  background-size: 20px 20px;
   min-height: 0;
 }
 

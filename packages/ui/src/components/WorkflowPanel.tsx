@@ -24,6 +24,8 @@ import type {
   WorkflowStep,
 } from '@crafillio/core';
 import { CodeEditor } from './CodeEditor';
+import { BodyEditor } from './BodyEditor';
+import { KeyValueTable } from './KeyValueTable';
 import { WorkflowCanvas } from './WorkflowCanvas';
 import { formatBytes, formatMs, tryPrettyJson } from '../lib/format';
 import { blankRest, uid } from '../lib/defaults';
@@ -435,7 +437,7 @@ function StepEditor({
   onChange: (next: Partial<WorkflowStep>) => void;
   onRemove: () => void;
 }) {
-  const [tab, setTab] = useState<'request' | 'inputs' | 'outputs'>('request');
+  const [tab, setTab] = useState<'headers' | 'body' | 'inputs' | 'outputs'>('headers');
   const urlRef = useRef<HTMLInputElement>(null);
   // Only earlier steps can be referenced — a later one has not run yet.
   const earlier = allSteps.slice(0, allSteps.findIndex((s) => s.id === step.id));
@@ -540,10 +542,22 @@ function StepEditor({
 
       <div className="subtabs">
         <button
-          className={`subtab ${tab === 'request' ? 'active' : ''}`}
-          onClick={() => setTab('request')}
+          className={`subtab ${tab === 'headers' ? 'active' : ''}`}
+          onClick={() => setTab('headers')}
         >
-          Body &amp; headers
+          Headers
+          {step.request.headers.filter((h) => h.enabled && h.key.trim()).length ? (
+            <span className="count">
+              {step.request.headers.filter((h) => h.enabled && h.key.trim()).length}
+            </span>
+          ) : null}
+        </button>
+        <button
+          className={`subtab ${tab === 'body' ? 'active' : ''}`}
+          onClick={() => setTab('body')}
+        >
+          Body
+          {step.request.body.kind !== 'none' ? <span className="count">•</span> : null}
         </button>
         <button
           className={`subtab ${tab === 'inputs' ? 'active' : ''}`}
@@ -560,96 +574,23 @@ function StepEditor({
       </div>
 
       <div className="tab-body">
-        {tab === 'request' && (
+        {tab === 'headers' && (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <div className="wf-hint">
               Reference any input or earlier output as <code>{'{{name}}'}</code> — in the URL,
               a header, or the body.
             </div>
-            <table className="kv">
-              <thead>
-                <tr>
-                  <th style={{ width: 34 }} />
-                  <th>Header</th>
-                  <th>Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...step.request.headers, { id: 'new', key: '', value: '', enabled: true }].map(
-                  (header, index) => (
-                    <tr key={header.id + index} className="kv-row">
-                      <td className="kv-check">
-                        {header.id !== 'new' && (
-                          <input
-                            type="checkbox"
-                            className="checkbox"
-                            checked={header.enabled}
-                            onChange={(e) =>
-                              setRequest({
-                                headers: step.request.headers.map((h) =>
-                                  h.id === header.id ? { ...h, enabled: e.target.checked } : h,
-                                ),
-                              })
-                            }
-                          />
-                        )}
-                      </td>
-                      <td>
-                        <input
-                          className="kv-input"
-                          value={header.key}
-                          placeholder="Authorization"
-                          onChange={(e) => {
-                            if (header.id === 'new') {
-                              setRequest({
-                                headers: [
-                                  ...step.request.headers,
-                                  { id: uid('h'), key: e.target.value, value: '', enabled: true },
-                                ],
-                              });
-                            } else {
-                              setRequest({
-                                headers: step.request.headers.map((h) =>
-                                  h.id === header.id ? { ...h, key: e.target.value } : h,
-                                ),
-                              });
-                            }
-                          }}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="kv-input"
-                          value={header.value}
-                          placeholder="Bearer {{token}}"
-                          onChange={(e) =>
-                            setRequest({
-                              headers: step.request.headers.map((h) =>
-                                h.id === header.id ? { ...h, value: e.target.value } : h,
-                              ),
-                            })
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ),
-                )}
-              </tbody>
-            </table>
-
-            <div className="wf-body-editor">
-              <div className="subtabs" style={{ borderTop: '1px solid var(--border)' }}>
-                <span className="meta" style={{ padding: '8px 12px' }}>
-                  JSON body
-                </span>
-              </div>
-              <CodeEditor
-                value={step.request.body.kind === 'json' ? step.request.body.text : ''}
-                language="json"
-                onChange={(text) => setRequest({ body: { kind: 'json', text } })}
-              />
-            </div>
+            <KeyValueTable
+              rows={step.request.headers}
+              onChange={(headers) => setRequest({ headers })}
+              keyPlaceholder="Header"
+              autocomplete="headers"
+            />
           </div>
+        )}
+
+        {tab === 'body' && (
+          <BodyEditor body={step.request.body} onChange={(body) => setRequest({ body })} />
         )}
 
         {tab === 'inputs' && (
