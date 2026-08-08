@@ -101,7 +101,7 @@ if (asJson) {
     null, 2,
   ));
 } else {
-  console.log('Crafillio DevKit — dependency licence report');
+  console.log('API Devkit — dependency licence report');
   console.log(`Packages scanned: ${installed.size}\n`);
   console.log('Licence breakdown');
   for (const [licence, count] of [...byLicence.entries()].sort((a, b) => b[1] - a[1])) {

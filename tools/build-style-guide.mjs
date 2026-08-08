@@ -280,7 +280,7 @@ const html = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Crafillio DevKit — Style Guide</title>
+<title>API Devkit — Style Guide</title>
 <style>
 ${fontFaces}
 
@@ -484,7 +484,7 @@ footer a:hover{text-decoration:underline}
         <rect x="24.5" y="27.6" width="12" height="3.4" rx="1.7" fill="#ffffff" opacity=".92"/>
         <circle cx="30.6" cy="18.4" r="2.5" fill="#ffffff" opacity=".92"/>
       </svg>
-      Crafillio <span class="brand-accent">DevKit</span>
+      API <span class="brand-accent">Devkit</span>
     </div>
     <div class="spacer"></div>
     <div class="toggle" role="group" aria-label="Theme">
@@ -652,7 +652,7 @@ footer a:hover{text-decoration:underline}
   </section>
 
   <footer>
-    Crafillio DevKit — MIT © 2026 Amit Singh ·
+    API Devkit — MIT © 2026 Amit Singh ·
     <a href="https://crafillio.com">crafillio.com</a><br>
     Generated from <code>packages/ui/src/styles.css</code> by <code>npm run style-guide</code>.
   </footer>

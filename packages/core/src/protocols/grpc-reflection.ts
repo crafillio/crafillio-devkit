@@ -14,7 +14,7 @@ import descriptorExt from 'protobufjs/ext/descriptor/index.js';
 import type { GrpcTarget } from '../types.js';
 import { credentialsFor, channelOptionsFor } from './grpc-target.js';
 
-/** The reflection service definition, held inline so Crafillio DevKit ships no .proto assets. */
+/** The reflection service definition, held inline so API Devkit ships no .proto assets. */
 const REFLECTION_PROTO = `
 syntax = "proto3";
 package __PKG__;

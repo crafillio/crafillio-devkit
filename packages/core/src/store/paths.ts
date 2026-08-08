@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 
 /**
- * Everything Crafillio DevKit persists lives under one directory in the developer's home.
+ * Everything API Devkit persists lives under one directory in the developer's home.
  * Nothing leaves this machine — there is no sync service and no telemetry.
  */
 export const CRAFILLIO_HOME = process.env.CRAFILLIO_HOME || join(homedir(), '.crafillio');
@@ -34,7 +34,7 @@ export async function readJson<T>(path: string, fallback: T): Promise<T> {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return fallback;
     // A corrupt file must not take the app down — the user keeps working and
     // the bad file is left in place for them to inspect.
-    console.error(`Crafillio DevKit: could not read ${path}:`, (err as Error).message);
+    console.error(`API Devkit: could not read ${path}:`, (err as Error).message);
     return fallback;
   }
 }

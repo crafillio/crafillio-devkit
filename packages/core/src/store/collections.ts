@@ -184,7 +184,7 @@ export async function importCollection(json: string): Promise<Collection> {
     throw new Error(`Not a valid collection file: ${(err as Error).message}`);
   }
   if (!Array.isArray(parsed.requests)) {
-    throw new Error('Not a Crafillio DevKit collection — no "requests" array found.');
+    throw new Error('Not a API Devkit collection — no "requests" array found.');
   }
 
   const collection: Collection = {

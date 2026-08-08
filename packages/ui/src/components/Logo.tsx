@@ -1,5 +1,5 @@
 /**
- * The Crafillio DevKit mark.
+ * The API Devkit mark.
  *
  * A shell prompt turned into a monogram: an angle bracket `<` and a blinking
  * cursor bar sit inside a rounded tile, with a stray "dot" that reads as both a
@@ -15,7 +15,7 @@ interface Props {
   title?: string;
 }
 
-export function Logo({ size = 28, animated = false, title = 'Crafillio DevKit' }: Props) {
+export function Logo({ size = 28, animated = false, title = 'API Devkit' }: Props) {
   return (
     <svg
       width={size}
@@ -77,7 +77,7 @@ export function Wordmark({ size = 40 }: { size?: number }) {
       <Logo size={size} animated />
       <div style={{ lineHeight: 1.15 }}>
         <div style={{ fontSize: size * 0.46, fontWeight: 700, letterSpacing: '-0.02em' }}>
-          Crafillio <span style={{ color: 'var(--accent)' }}>DevKit</span>
+          API <span style={{ color: 'var(--accent)' }}>Devkit</span>
         </div>
         <div style={{ fontSize: size * 0.28, color: 'var(--text-dim)' }}>
           REST · gRPC · S3 · Load testing

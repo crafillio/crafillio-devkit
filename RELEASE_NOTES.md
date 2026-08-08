@@ -1,4 +1,4 @@
-# Crafillio DevKit 1.0.0
+# API Devkit 1.0.0
 
 **One desktop app for REST, gRPC, S3 — and load testing.** Offline-first, MIT licensed, no account
 and no telemetry.
@@ -15,7 +15,7 @@ through JSON. All four call types, with streaming responses on a timestamped tim
 
 **S3 metadata editing that doesn't lose your headers.** S3 has no in-place metadata update; the only
 mechanism replaces the entire metadata set and silently drops system headers you don't resend.
-Crafillio DevKit reads the object first and passes through everything you didn't change.
+API Devkit reads the object first and passes through everything you didn't change.
 
 **Load testing with honest numbers.** Duration or iteration runs, ramp-up, an optional RPS ceiling
 and an error-rate circuit breaker. Percentiles come from a reservoir sample, so long runs keep flat
@@ -45,7 +45,7 @@ npm start
 ```
 
 macOS builds are currently unsigned. Right-click → Open the first time, or run
-`xattr -dr com.apple.quarantine "/Applications/Crafillio DevKit.app"`.
+`xattr -dr com.apple.quarantine "/Applications/API Devkit.app"`.
 
 ## Verification
 

@@ -286,7 +286,7 @@ export function App() {
         <div className="brand">
           <Logo size={22} />
           <span>
-            Crafillio <span className="brand-accent">DevKit</span>
+            API <span className="brand-accent">Devkit</span>
           </span>
         </div>
 

@@ -113,7 +113,7 @@ function Collections() {
       confirmLabel: 'Choose file',
       options: [
         { value: 'postman', label: 'Postman collection', hint: 'v2.1 export' },
-        { value: 'native', label: 'Crafillio DevKit collection', hint: '.json export' },
+        { value: 'native', label: 'API Devkit collection', hint: '.json export' },
       ],
     });
     if (!choice) return;

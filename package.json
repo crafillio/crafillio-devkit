@@ -2,8 +2,8 @@
   "name": "crafillio-devkit",
   "version": "1.0.0",
   "private": true,
-  "productName": "Crafillio DevKit",
-  "description": "Crafillio DevKit — an offline-first API workbench for REST, gRPC and S3, with built-in load testing.",
+  "productName": "API Devkit",
+  "description": "API Devkit — an offline-first API workbench for REST, gRPC and S3, with built-in load testing.",
   "license": "MIT",
   "author": "Amit Singh",
   "workspaces": [

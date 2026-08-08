@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--
-      Crafillio DevKit makes no outbound requests of its own. This policy blocks any
+      API Devkit makes no outbound requests of its own. This policy blocks any
       attempt by renderer code to load or contact anything remote; the user's
       own API calls all happen in the main process, which CSP does not gate.
     -->
@@ -12,7 +12,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'"
     />
-    <title>Crafillio DevKit</title>
+    <title>API Devkit</title>
   </head>
   <body>
     <div id="root"></div>

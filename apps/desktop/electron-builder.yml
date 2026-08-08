@@ -1,6 +1,6 @@
 appId: com.crafillio.app
-productName: Crafillio DevKit
-copyright: Copyright © 2026 Crafillio DevKit
+productName: API Devkit
+copyright: Copyright © 2026 API Devkit
 
 directories:
   output: release

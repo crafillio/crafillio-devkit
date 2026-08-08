@@ -1,6 +1,6 @@
 <div align="center">
 
-# Crafillio DevKit
+# API Devkit
 
 **One desktop app for REST, gRPC, S3 — and load testing.**
 Offline-first. No telemetry. No account. MIT licensed.
@@ -12,7 +12,7 @@ by [Amit Singh](https://crafillio.com)
 ---
 
 Most teams keep three tools open: one for HTTP, one for gRPC, and a browser tab for buckets. Then a
-fourth when someone asks "but how fast is it?". Crafillio DevKit puts all four behind one tab strip,
+fourth when someone asks "but how fast is it?". API Devkit puts all four behind one tab strip,
 one set of environment variables, and one collection format — and it never sends your data anywhere.
 
 ## Features
@@ -48,7 +48,7 @@ endpoint and path-style addressing.
 
 > S3 has no in-place metadata update. The only mechanism is copying the object onto itself with
 > `MetadataDirective: REPLACE`, which replaces the *entire* metadata set and silently drops any
-> system header you don't resend. Crafillio DevKit reads the object first and passes through
+> system header you don't resend. API Devkit reads the object first and passes through
 > everything you didn't change, so editing one field never quietly erases your Content-Type.
 
 ### Load testing
@@ -76,7 +76,7 @@ tail — which is exactly where the interesting latency lives.
 
 ## Privacy
 
-Crafillio DevKit initiates **no network connection of its own**. No telemetry, no analytics, no
+API Devkit initiates **no network connection of its own**. No telemetry, no analytics, no
 crash reporting, no update check. The only traffic is the requests you ask it to make.
 
 The renderer runs under `default-src 'none'` with `connect-src 'self'`, so page code cannot reach

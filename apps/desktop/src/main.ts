@@ -1,5 +1,5 @@
 /**
- * Crafillio DevKit main process.
+ * API Devkit main process.
  *
  * Owns every privileged operation: the protocol engines, disk access and the
  * OS keychain. The renderer reaches none of it directly — only through the
@@ -284,7 +284,7 @@ function registerHandlers(): void {
     const json = await collections.exportCollection(collectionId);
     const result = await dialog.showSaveDialog({
       defaultPath: 'collection.crafillio.json',
-      filters: [{ name: 'Crafillio DevKit collection', extensions: ['json'] }],
+      filters: [{ name: 'API Devkit collection', extensions: ['json'] }],
     });
     if (result.canceled || !result.filePath) return null;
     await writeFile(result.filePath, json, 'utf8');
@@ -294,7 +294,7 @@ function registerHandlers(): void {
   handle('collections:import', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile'],
-      filters: [{ name: 'Crafillio DevKit collection', extensions: ['json'] }],
+      filters: [{ name: 'API Devkit collection', extensions: ['json'] }],
     });
     if (result.canceled || result.filePaths.length === 0) return null;
     const { readFile } = await import('node:fs/promises');
@@ -347,7 +347,7 @@ function registerHandlers(): void {
     if (result.canceled || !result.filePath) return null;
 
     const lines = [
-      '# Crafillio DevKit load test report',
+      '# API Devkit load test report',
       `# target,${report.label}`,
       `# started,${report.startedAt}`,
       `# duration_ms,${Math.round(report.durationMs)}`,

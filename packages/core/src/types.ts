@@ -1,5 +1,5 @@
 /**
- * Shared types for every Crafillio DevKit protocol engine and the storage layer.
+ * Shared types for every API Devkit protocol engine and the storage layer.
  *
  * These are deliberately plain data — they cross the IPC boundary as JSON, so
  * nothing here may hold a class instance, a stream, or a Buffer.

@@ -2,7 +2,7 @@
   "name": "@crafillio/core",
   "version": "1.0.0",
   "private": true,
-  "description": "Protocol engines and local storage for Crafillio DevKit. No Electron imports — shell-agnostic.",
+  "description": "Protocol engines and local storage for API Devkit. No Electron imports — shell-agnostic.",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

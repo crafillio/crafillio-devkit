@@ -2,7 +2,7 @@
   "name": "@crafillio/desktop",
   "version": "1.0.0",
   "private": true,
-  "description": "Crafillio DevKit desktop shell.",
+  "description": "API Devkit desktop shell.",
   "license": "MIT",
   "main": "dist/main.js",
   "scripts": {

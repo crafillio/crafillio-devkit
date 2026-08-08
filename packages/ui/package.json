@@ -2,7 +2,7 @@
   "name": "@crafillio/ui",
   "version": "1.0.0",
   "private": true,
-  "description": "Crafillio DevKit renderer.",
+  "description": "API Devkit renderer.",
   "license": "MIT",
   "type": "module",
   "scripts": {
