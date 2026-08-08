@@ -12,9 +12,14 @@ files:
   - dist/**/*
   - package.json
 
+# Pinned explicitly: electron-builder downloads binaries for one exact release
+# and cannot resolve the "^43.3.0" range from package.json on its own.
+electronVersion: 43.3.0
+
 npmRebuild: false
 
 mac:
+  artifactName: APIDevkit-mac-${arch}.${ext}
   category: public.app-category.developer-tools
   target:
     - target: dmg
@@ -32,6 +37,7 @@ win:
       arch: [x64, arm64]
 
 nsis:
+  artifactName: APIDevkit-windows-setup.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true
   perMachine: false

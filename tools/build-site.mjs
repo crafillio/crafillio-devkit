@@ -25,6 +25,17 @@ const HANDLE = 'crafillio';
 const REPO = 'https://github.com/crafillio/crafillio-devkit';
 const GH_USER = `https://github.com/${HANDLE}`;
 const RELEASES = `${REPO}/releases/latest`;
+/**
+ * Direct asset links. `/releases/latest/download/<name>` always resolves to the
+ * newest release's asset of that name, so these survive every version bump —
+ * which is why the installers are named without a version in them.
+ */
+const DL = `${REPO}/releases/latest/download`;
+const DOWNLOAD = {
+  macArm: `${DL}/APIDevkit-mac-arm64.dmg`,
+  macIntel: `${DL}/APIDevkit-mac-x64.dmg`,
+  windows: `${DL}/APIDevkit-windows-setup.exe`,
+};
 /** GitHub serves every account's avatar here; no API call needed. */
 const AVATAR = `https://github.com/${HANDLE}.png?size=240`;
 
@@ -332,14 +343,21 @@ const body = `
     </p>
 
     <div class="dl-grid">
-      <a class="dl" href="${esc(RELEASES)}" data-os="mac">
+      <a class="dl" href="${esc(DOWNLOAD.macArm)}" data-os="mac" download>
         <span class="dl-icon" aria-hidden="true">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M16.1 12.6c0-2.2 1.8-3.3 1.9-3.3-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.7.8-3.4.8-.7 0-1.8-.8-2.9-.8-1.5 0-2.9.9-3.6 2.2-1.6 2.7-.4 6.7 1.1 8.9.7 1.1 1.6 2.3 2.7 2.2 1.1 0 1.5-.7 2.8-.7 1.3 0 1.6.7 2.8.7 1.2 0 1.9-1.1 2.6-2.1.8-1.2 1.2-2.4 1.2-2.5-.1 0-2.2-.9-2.2-3.4ZM14 5.9c.6-.7 1-1.7.9-2.7-.9 0-2 .6-2.6 1.3-.6.6-1 1.6-.9 2.6 1 .1 2-.5 2.6-1.2Z"/></svg>
         </span>
-        <span class="dl-text"><strong>macOS</strong><small>Apple silicon &amp; Intel · .dmg</small></span>
+        <span class="dl-text"><strong>macOS</strong><small>Apple silicon · .dmg</small></span>
       </a>
 
-      <a class="dl" href="${esc(RELEASES)}" data-os="windows">
+      <a class="dl" href="${esc(DOWNLOAD.macIntel)}" data-os="mac-intel" download>
+        <span class="dl-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M16.1 12.6c0-2.2 1.8-3.3 1.9-3.3-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.7.8-3.4.8-.7 0-1.8-.8-2.9-.8-1.5 0-2.9.9-3.6 2.2-1.6 2.7-.4 6.7 1.1 8.9.7 1.1 1.6 2.3 2.7 2.2 1.1 0 1.5-.7 2.8-.7 1.3 0 1.6.7 2.8.7 1.2 0 1.9-1.1 2.6-2.1.8-1.2 1.2-2.4 1.2-2.5-.1 0-2.2-.9-2.2-3.4ZM14 5.9c.6-.7 1-1.7.9-2.7-.9 0-2 .6-2.6 1.3-.6.6-1 1.6-.9 2.6 1 .1 2-.5 2.6-1.2Z"/></svg>
+        </span>
+        <span class="dl-text"><strong>macOS</strong><small>Intel · .dmg</small></span>
+      </a>
+
+      <a class="dl" href="${esc(DOWNLOAD.windows)}" data-os="windows" download>
         <span class="dl-icon" aria-hidden="true">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.6 10.2 4.6v7H3v-6ZM11.3 4.4 21 3v8.6h-9.7v-7.2ZM3 12.4h7.2v7L3 18.4v-6ZM11.3 12.4H21V21l-9.7-1.4v-7.2Z"/></svg>
         </span>
@@ -349,9 +367,9 @@ const body = `
     </div>
 
     <p class="dl-note">
-      Builds are published on the <a href="${esc(RELEASES)}">releases page</a>. Until the first one
-      is uploaded, <code>npm run dist</code> produces an installer for the machine you are on.
-      Builds are unsigned for now, so the system will ask you to confirm the first launch.
+      Every build is on the <a href="${esc(RELEASES)}">releases page</a>, including checksums.
+      They are unsigned for now, so macOS will ask you to confirm the first launch
+      (right-click → Open) and Windows will show a SmartScreen notice.
     </p>
   </section>
 </main>

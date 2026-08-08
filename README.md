@@ -100,6 +100,19 @@ can read your secrets. It defends against the realistic accidents — a committe
 folder, a shared backup, an exported collection — not against someone already on your account. If
 you want the stronger guarantee, switch to the keychain in About.
 
+## Download
+
+| Platform | |
+|---|---|
+| **macOS** — Apple silicon | [APIDevkit-mac-arm64.dmg](https://github.com/crafillio/crafillio-devkit/releases/latest/download/APIDevkit-mac-arm64.dmg) |
+| **macOS** — Intel | [APIDevkit-mac-x64.dmg](https://github.com/crafillio/crafillio-devkit/releases/latest/download/APIDevkit-mac-x64.dmg) |
+| **Windows** — x64 & ARM | [APIDevkit-windows-setup.exe](https://github.com/crafillio/crafillio-devkit/releases/latest/download/APIDevkit-windows-setup.exe) |
+
+Every build is on the [releases page](https://github.com/crafillio/crafillio-devkit/releases/latest).
+Builds are unsigned, so macOS asks you to confirm the first launch (right-click → Open) and Windows
+shows a SmartScreen notice. There is no installer for Linux — this is distributed for macOS and
+Windows only.
+
 ## Getting started
 
 ```bash
