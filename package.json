@@ -1,0 +1,52 @@
+{
+  "name": "crafillio-devkit",
+  "version": "1.0.0",
+  "private": true,
+  "productName": "Crafillio DevKit",
+  "description": "Crafillio DevKit — an offline-first API workbench for REST, gRPC and S3, with built-in load testing.",
+  "license": "MIT",
+  "author": "Amit Singh",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "build": "npm run build -w @crafillio/core && npm run build -w @crafillio/ui",
+    "build:core": "npm run build -w @crafillio/core",
+    "build:ui": "npm run build -w @crafillio/ui",
+    "dev": "npm run build:core && npm run dev -w @crafillio/desktop",
+    "start": "npm run build && npm run start -w @crafillio/desktop",
+    "test": "npm run test -w @crafillio/core",
+    "typecheck": "tsc -b packages/core apps/desktop && npm run typecheck -w @crafillio/ui",
+    "dist": "npm run build && npm run dist -w @crafillio/desktop",
+    "clean": "rm -rf packages/*/dist apps/*/dist apps/desktop/release packages/*/tsconfig.tsbuildinfo apps/*/tsconfig.tsbuildinfo",
+    "licenses": "node tools/license-report.mjs",
+    "audit": "npm audit --omit=dev",
+    "verify": "npm run typecheck && npm test && npm run licenses && npm run audit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "homepage": "https://crafillio.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/crafillio/crafillio-devkit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/crafillio/crafillio-devkit/issues"
+  },
+  "keywords": [
+    "api-client",
+    "rest",
+    "grpc",
+    "s3",
+    "load-testing",
+    "postman-alternative",
+    "electron",
+    "offline-first",
+    "developer-tools"
+  ]
+}

@@ -1,0 +1,43 @@
+appId: com.crafillio.app
+productName: Crafillio DevKit
+copyright: Copyright © 2026 Crafillio DevKit
+
+directories:
+  output: release
+  buildResources: build
+
+# The main process is bundled by esbuild, so nothing from node_modules needs to
+# ship. This is what keeps the packaged app close to the Electron baseline.
+files:
+  - dist/**/*
+  - package.json
+
+npmRebuild: false
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  # Requires a Developer ID certificate; unsigned builds still run locally after
+  # the user clears Gatekeeper.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+
+linux:
+  category: Development
+  target:
+    - AppImage
+    - deb

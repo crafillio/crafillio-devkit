@@ -1,0 +1,50 @@
+Crafillio DevKit
+Copyright (c) 2026 Amit Singh
+Licensed under the MIT License. See LICENSE.
+
+================================================================================
+BUNDLED FONTS
+================================================================================
+
+This product bundles the following typefaces, each licensed under the
+SIL Open Font License, Version 1.1 (OFL-1.1). The OFL permits bundling and
+redistribution as part of a larger work; it does not permit selling the fonts
+on their own.
+
+  Space Grotesk
+    Copyright (c) 2020 Florian Karsten
+    https://github.com/floriankarsten/space-grotesk
+
+  Inter Tight
+    Copyright (c) 2016 The Inter Project Authors
+    https://github.com/rsms/inter
+
+  JetBrains Mono
+    Copyright (c) 2020 JetBrains s.r.o.
+    https://github.com/JetBrains/JetBrainsMono
+
+Full licence text: https://openfontlicense.org
+
+================================================================================
+THIRD-PARTY SOFTWARE
+================================================================================
+
+This product includes open-source software under permissive licences,
+principally MIT, ISC, Apache-2.0 and BSD. No copyleft-licensed dependency is
+bundled.
+
+Notable components:
+
+  Electron            MIT      https://github.com/electron/electron
+  React               MIT      https://github.com/facebook/react
+  @grpc/grpc-js       Apache-2.0  https://github.com/grpc/grpc-node
+  protobuf.js         BSD-3-Clause  https://github.com/protobufjs/protobuf.js
+  AWS SDK for JS v3   Apache-2.0  https://github.com/aws/aws-sdk-js-v3
+  undici              MIT      https://github.com/nodejs/undici
+  CodeMirror 6        MIT      https://github.com/codemirror
+  Zustand             MIT      https://github.com/pmndrs/zustand
+  Lucide              ISC      https://github.com/lucide-icons/lucide
+
+For a complete, generated report of every installed dependency and its licence:
+
+  npm run licenses

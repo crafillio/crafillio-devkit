@@ -1,0 +1,26 @@
+{
+  "name": "@crafillio/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Crafillio DevKit desktop shell.",
+  "license": "MIT",
+  "main": "dist/main.js",
+  "scripts": {
+    "bundle": "node build.mjs",
+    "build": "npm run bundle",
+    "dev": "node build.mjs --dev",
+    "start": "npm run bundle && electron .",
+    "typecheck": "tsc --noEmit",
+    "dist": "npm run bundle && electron-builder"
+  },
+  "dependencies": {
+    "@crafillio/core": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "electron": "^43.3.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.1",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,15 @@
+node_modules/
+dist/
+release/
+*.tsbuildinfo
+
+# Vendor licence signing key — anyone holding this can mint Tridex licences.
+tridex-license-private.pem
+*.pem
+
+.DS_Store
+.env
+.env.local
+
+# Local encryption key — never commit; it decrypts stored secrets.
+secret.key

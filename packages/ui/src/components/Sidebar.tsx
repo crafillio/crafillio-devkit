@@ -1,0 +1,622 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Cloud,
+  Copy,
+  Download,
+  FilePlus2,
+  Folder as FolderIcon,
+  FolderPlus,
+  History,
+  Library,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  Upload,
+} from 'lucide-react';
+import type { Collection, Folder, HistoryEntry, SavedRequest } from '@crafillio/core';
+import { useStore } from '../state/store';
+import { askChoice, askConfirm, askName } from '../state/dialogs';
+import { formatDate } from '../lib/format';
+import { uid } from '../lib/defaults';
+
+type Section = 'collections' | 'history' | 's3';
+
+interface Props {
+  onEditConnection: (id: string | null) => void;
+}
+
+export function Sidebar({ onEditConnection }: Props) {
+  const [section, setSection] = useState<Section>('collections');
+
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-tabs">
+        <button
+          className={`sidebar-tab ${section === 'collections' ? 'active' : ''}`}
+          onClick={() => setSection('collections')}
+          title="Collections"
+        >
+          <Library size={14} />
+        </button>
+        <button
+          className={`sidebar-tab ${section === 'history' ? 'active' : ''}`}
+          onClick={() => setSection('history')}
+          title="History"
+        >
+          <History size={14} />
+        </button>
+        <button
+          className={`sidebar-tab ${section === 's3' ? 'active' : ''}`}
+          onClick={() => setSection('s3')}
+          title="S3 connections"
+        >
+          <Cloud size={14} />
+        </button>
+      </div>
+
+      {section === 'collections' && <Collections />}
+      {section === 'history' && <HistoryList />}
+      {section === 's3' && <Connections onEdit={onEditConnection} />}
+    </aside>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Collections                                                         */
+/* ------------------------------------------------------------------ */
+
+function Collections() {
+  const collections = useStore((s) => s.collections);
+  const refresh = useStore((s) => s.refreshCollections);
+  const toast = useStore((s) => s.toast);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState('');
+
+  const toggle = (id: string): void =>
+    setCollapsed((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const create = async (): Promise<void> => {
+    const name = await askName({
+      title: 'New collection',
+      label: 'Collection name',
+      placeholder: 'Payments API',
+      defaultValue: 'New collection',
+    });
+    if (!name) return;
+    await window.crafillio.collections.create(name);
+    await refresh();
+    toast('success', `Created "${name}"`);
+  };
+
+  const importCollection = async (): Promise<void> => {
+    const choice = await askChoice({
+      title: 'Import',
+      label: 'Format',
+      confirmLabel: 'Choose file',
+      options: [
+        { value: 'postman', label: 'Postman collection', hint: 'v2.1 export' },
+        { value: 'native', label: 'Crafillio DevKit collection', hint: '.json export' },
+      ],
+    });
+    if (!choice) return;
+
+    try {
+      if (choice === 'postman') {
+        const result = await window.crafillio.interop.importPostman();
+        if (!result) return;
+        await refresh();
+        toast(
+          'success',
+          `Imported ${result.requestCount} request${result.requestCount === 1 ? '' : 's'} from Postman` +
+            (result.skipped.length ? ` (${result.skipped.length} skipped)` : ''),
+        );
+      } else {
+        const imported = await window.crafillio.collections.importFromFile();
+        if (!imported) return;
+        await refresh();
+        toast('success', `Imported "${imported.name}"`);
+      }
+    } catch (err) {
+      toast('error', (err as Error).message);
+    }
+  };
+
+  const query = filter.trim().toLowerCase();
+
+  return (
+    <>
+      <div className="sidebar-actions">
+        <button className="btn btn-sm" onClick={create} style={{ flex: 1 }}>
+          <FolderPlus size={13} /> New
+        </button>
+        <button className="btn btn-sm btn-icon" onClick={importCollection} title="Import collection">
+          <Upload size={13} />
+        </button>
+      </div>
+
+      <div className="sidebar-search">
+        <Search size={12} />
+        <input
+          value={filter}
+          placeholder="Filter requests"
+          onChange={(e) => setFilter(e.target.value)}
+        />
+      </div>
+
+      <div className="sidebar-scroll">
+        {collections.length === 0 && (
+          <div className="empty-note">
+            No collections yet.
+            <br />
+            Create one, or import from Postman.
+          </div>
+        )}
+
+        {collections.map((collection) => (
+          <CollectionTree
+            key={collection.id}
+            collection={collection}
+            filter={query}
+            collapsed={collapsed}
+            onToggle={toggle}
+            onChanged={refresh}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+/** A collection rendered as a real folder tree, matching the saved structure. */
+function CollectionTree({
+  collection,
+  filter,
+  collapsed,
+  onToggle,
+  onChanged,
+}: {
+  collection: Collection;
+  filter: string;
+  collapsed: Set<string>;
+  onToggle: (id: string) => void;
+  onChanged: () => Promise<void>;
+}) {
+  const openSaved = useStore((s) => s.openSaved);
+  const toast = useStore((s) => s.toast);
+
+  const matches = useCallback(
+    (request: SavedRequest): boolean => {
+      if (!filter) return true;
+      const url = request.rest?.url ?? request.grpc?.service ?? '';
+      return (
+        request.name.toLowerCase().includes(filter) || url.toLowerCase().includes(filter)
+      );
+    },
+    [filter],
+  );
+
+  const visibleRequests = useMemo(
+    () => collection.requests.filter(matches),
+    [collection.requests, matches],
+  );
+
+  // While filtering, hide branches with no surviving requests so the tree
+  // collapses down to what actually matched.
+  const folderHasMatch = useCallback(
+    (folderId: string): boolean => {
+      if (!filter) return true;
+      const descendants = new Set<string>([folderId]);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const folder of collection.folders) {
+          if (folder.parentId && descendants.has(folder.parentId) && !descendants.has(folder.id)) {
+            descendants.add(folder.id);
+            grew = true;
+          }
+        }
+      }
+      return visibleRequests.some((r) => r.folderId && descendants.has(r.folderId));
+    },
+    [collection.folders, filter, visibleRequests],
+  );
+
+  const isCollapsed = collapsed.has(collection.id) && !filter;
+
+  const addFolder = async (parentId: string | null): Promise<void> => {
+    const name = await askName({
+      title: 'New folder',
+      label: 'Folder name',
+      placeholder: 'Users',
+      defaultValue: 'New folder',
+    });
+    if (!name) return;
+    await window.crafillio.collections.createFolder(collection.id, name, parentId);
+    await onChanged();
+  };
+
+  const rename = async (): Promise<void> => {
+    const name = await askName({
+      title: 'Rename collection',
+      label: 'Collection name',
+      defaultValue: collection.name,
+      confirmLabel: 'Rename',
+    });
+    if (!name) return;
+    await window.crafillio.collections.rename(collection.id, name);
+    await onChanged();
+  };
+
+  const remove = async (): Promise<void> => {
+    const ok = await askConfirm({
+      title: 'Delete collection',
+      message: `Delete "${collection.name}" and all ${collection.requests.length} request(s) inside it?\n\nThis cannot be undone.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    await window.crafillio.collections.remove(collection.id);
+    await onChanged();
+    toast('success', 'Collection deleted');
+  };
+
+  const exportCollection = async (): Promise<void> => {
+    const path = await window.crafillio.collections.exportToFile(collection.id);
+    if (path) toast('success', `Exported to ${path}`);
+  };
+
+  const renderFolder = (folder: Folder, depth: number): JSX.Element | null => {
+    if (!folderHasMatch(folder.id)) return null;
+    const folderCollapsed = collapsed.has(folder.id) && !filter;
+
+    return (
+      <div key={folder.id}>
+        <div
+          className="tree-row"
+          style={{ paddingLeft: 10 + depth * 12 }}
+          onClick={() => onToggle(folder.id)}
+        >
+          {folderCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+          <FolderIcon size={13} style={{ color: 'var(--amber)', flexShrink: 0 }} />
+          <span className="row-label">{folder.name}</span>
+          <button
+            className="row-action"
+            title="New folder inside"
+            onClick={(e) => {
+              e.stopPropagation();
+              void addFolder(folder.id);
+            }}
+          >
+            <Plus size={12} />
+          </button>
+          <button
+            className="row-action"
+            title="Delete folder"
+            onClick={async (e) => {
+              e.stopPropagation();
+              const ok = await askConfirm({
+                title: 'Delete folder',
+                message: `Delete "${folder.name}" and everything inside it?`,
+                confirmLabel: 'Delete',
+                danger: true,
+              });
+              if (!ok) return;
+              await window.crafillio.collections.removeFolder(collection.id, folder.id);
+              await onChanged();
+            }}
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+
+        {!folderCollapsed && (
+          <>
+            {collection.folders
+              .filter((child) => child.parentId === folder.id)
+              .map((child) => renderFolder(child, depth + 1))}
+            {visibleRequests
+              .filter((request) => request.folderId === folder.id)
+              .map((request) => renderRequest(request, depth + 1))}
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const renderRequest = (request: SavedRequest, depth: number): JSX.Element => (
+    <RequestRow
+      key={request.id}
+      request={request}
+      depth={depth}
+      collection={collection}
+      onOpen={() => openSaved(collection, request)}
+      onChanged={onChanged}
+    />
+  );
+
+  return (
+    <div className="collection-block">
+      <div className="collection-header" onClick={() => onToggle(collection.id)}>
+        {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+        <span style={{ flex: 1 }}>{collection.name}</span>
+        <span className="collection-count">{collection.requests.length}</span>
+        <span className="collection-tools" onClick={(e) => e.stopPropagation()}>
+          <button className="row-action" title="New folder" onClick={() => void addFolder(null)}>
+            <FolderPlus size={12} />
+          </button>
+          <button className="row-action" title="Rename" onClick={rename}>
+            <Pencil size={12} />
+          </button>
+          <button className="row-action" title="Export" onClick={exportCollection}>
+            <Download size={12} />
+          </button>
+          <button className="row-action danger" title="Delete collection" onClick={remove}>
+            <Trash2 size={12} />
+          </button>
+        </span>
+      </div>
+
+      {!isCollapsed && (
+        <>
+          {collection.folders
+            .filter((folder) => folder.parentId === null)
+            .map((folder) => renderFolder(folder, 0))}
+          {visibleRequests
+            .filter((request) => request.folderId === null)
+            .map((request) => renderRequest(request, 0))}
+          {collection.requests.length === 0 && (
+            <div className="empty-note" style={{ padding: '10px 16px', textAlign: 'left' }}>
+              Empty — save a request here with ⌘S.
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function RequestRow({
+  request,
+  depth,
+  collection,
+  onOpen,
+  onChanged,
+}: {
+  request: SavedRequest;
+  depth: number;
+  collection: Collection;
+  onOpen: () => void;
+  onChanged: () => Promise<void>;
+}) {
+  const toast = useStore((s) => s.toast);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const chip = request.protocol === 'rest' ? (request.rest?.method ?? 'GET') : request.protocol.toUpperCase();
+
+  const rename = async (): Promise<void> => {
+    setMenuOpen(false);
+    const name = await askName({
+      title: 'Rename request',
+      label: 'Request name',
+      defaultValue: request.name,
+      confirmLabel: 'Rename',
+    });
+    if (!name) return;
+    await window.crafillio.collections.saveRequest(collection.id, { ...request, name });
+    await onChanged();
+  };
+
+  const duplicate = async (): Promise<void> => {
+    setMenuOpen(false);
+    await window.crafillio.collections.saveRequest(collection.id, {
+      ...request,
+      id: uid('req'),
+      name: `${request.name} copy`,
+    });
+    await onChanged();
+    toast('success', 'Request duplicated');
+  };
+
+  const copyAsCurl = async (): Promise<void> => {
+    setMenuOpen(false);
+    if (!request.rest) {
+      toast('error', 'Only REST requests can be copied as curl.');
+      return;
+    }
+    const command = await window.crafillio.interop.exportCurl(request.rest);
+    await navigator.clipboard.writeText(command);
+    toast('success', 'Copied as curl');
+  };
+
+  const remove = async (): Promise<void> => {
+    setMenuOpen(false);
+    const ok = await askConfirm({
+      title: 'Delete request',
+      message: `Delete "${request.name}"?`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    await window.crafillio.collections.removeRequest(collection.id, request.id);
+    await onChanged();
+  };
+
+  return (
+    <div className="tree-row request-row" style={{ paddingLeft: 10 + depth * 12 }} onClick={onOpen}>
+      <span className={`method-chip m-${chip}`}>{chip}</span>
+      <span className="row-label">{request.name}</span>
+
+      <button
+        className="row-action"
+        title="More"
+        onClick={(e) => {
+          e.stopPropagation();
+          setMenuOpen((open) => !open);
+        }}
+      >
+        <MoreHorizontal size={12} />
+      </button>
+
+      {menuOpen && (
+        <>
+          {/* Click-away layer so the menu closes without a document listener. */}
+          <div className="menu-scrim" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
+          <div className="context-menu" onClick={(e) => e.stopPropagation()}>
+            <button onClick={rename}>
+              <Pencil size={12} /> Rename
+            </button>
+            <button onClick={duplicate}>
+              <Copy size={12} /> Duplicate
+            </button>
+            <button onClick={copyAsCurl}>
+              <FilePlus2 size={12} /> Copy as curl
+            </button>
+            <button className="danger" onClick={remove}>
+              <Trash2 size={12} /> Delete
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* History                                                             */
+/* ------------------------------------------------------------------ */
+
+function HistoryList() {
+  const [entries, setEntries] = useState<HistoryEntry[]>([]);
+
+  const load = useCallback(async (): Promise<void> => {
+    setEntries(await window.crafillio.history.list());
+  }, []);
+
+  useEffect(() => {
+    void load();
+    // Refresh when a request completes elsewhere in the app.
+    const timer = setInterval(load, 4000);
+    return () => clearInterval(timer);
+  }, [load]);
+
+  return (
+    <>
+      <div className="sidebar-actions">
+        <button className="btn btn-sm" style={{ flex: 1 }} onClick={load}>
+          Refresh
+        </button>
+        <button
+          className="btn btn-sm btn-danger"
+          onClick={async () => {
+            const ok = await askConfirm({
+              title: 'Clear history',
+              message: 'Remove every entry from request history?',
+              confirmLabel: 'Clear',
+              danger: true,
+            });
+            if (!ok) return;
+            await window.crafillio.history.clear();
+            await load();
+          }}
+        >
+          Clear
+        </button>
+      </div>
+
+      <div className="sidebar-scroll">
+        {entries.length === 0 && <div className="empty-note">Nothing sent yet.</div>}
+        {entries.map((entry) => (
+          <div key={entry.id} className="tree-row" style={{ cursor: 'default' }}>
+            <span className={`method-chip m-${entry.protocol.toUpperCase()}`}>
+              {entry.protocol.toUpperCase()}
+            </span>
+            <span className="row-label" title={entry.label}>
+              {entry.label}
+              <div className="row-sub">
+                {formatDate(entry.at)}
+                {entry.status ? ` · ${entry.status}` : ''}
+              </div>
+            </span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* S3 connections                                                      */
+/* ------------------------------------------------------------------ */
+
+function Connections({ onEdit }: { onEdit: (id: string | null) => void }) {
+  const connections = useStore((s) => s.connections);
+  const refresh = useStore((s) => s.refreshConnections);
+  const newTab = useStore((s) => s.newTab);
+
+  return (
+    <>
+      <div className="sidebar-actions">
+        <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => onEdit(null)}>
+          <Plus size={13} /> Add connection
+        </button>
+      </div>
+
+      <div className="sidebar-scroll">
+        {connections.length === 0 && (
+          <div className="empty-note">
+            No S3 connections.
+            <br />
+            Works with AWS, MinIO, R2 and any S3-compatible gateway.
+          </div>
+        )}
+
+        {connections.map((connection) => (
+          <div key={connection.id} className="tree-row" onClick={() => newTab('s3')}>
+            <Cloud size={13} style={{ color: 'var(--s3)', flexShrink: 0 }} />
+            <span className="row-label">
+              {connection.name}
+              <div className="row-sub">{connection.endpoint || `AWS · ${connection.region}`}</div>
+            </span>
+            <button
+              className="row-action"
+              title="Edit"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(connection.id);
+              }}
+            >
+              <Pencil size={12} />
+            </button>
+            <button
+              className="row-action danger"
+              title="Remove"
+              onClick={async (e) => {
+                e.stopPropagation();
+                const ok = await askConfirm({
+                  title: 'Remove connection',
+                  message: `Remove "${connection.name}"? Saved credentials for it are deleted.`,
+                  confirmLabel: 'Remove',
+                  danger: true,
+                });
+                if (!ok) return;
+                await window.crafillio.connections.remove(connection.id);
+                await refresh();
+              }}
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
