@@ -5,7 +5,7 @@ import { Wordmark } from './Logo';
 import { useStore } from '../state/store';
 import { useT } from '../i18n';
 
-const PORTAL_URL = 'https://crafillio.com';
+const PROFILE_URL = 'https://github.com/crafillio';
 const REPO_URL = 'https://github.com/crafillio/crafillio-devkit';
 
 export function AboutModal({ onClose }: { onClose: () => void }) {
@@ -49,10 +49,10 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-sm" onClick={() => open(REPO_URL)}>
-            <Github size={13} /> GitHub
+            <ExternalLink size={13} /> {t.about.repository}
           </button>
-          <button className="btn btn-primary btn-sm" onClick={() => open(PORTAL_URL)}>
-            <ExternalLink size={13} /> {t.about.visitPortal}
+          <button className="btn btn-primary btn-sm" onClick={() => open(PROFILE_URL)}>
+            <Github size={13} /> {t.about.viewProfile}
           </button>
         </div>
       </div>

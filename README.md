@@ -5,7 +5,7 @@
 **One desktop app for REST, gRPC, S3 — and load testing.**
 Offline-first. No telemetry. No account. MIT licensed.
 
-by [Amit Singh](https://crafillio.com)
+by [Amit Singh](https://github.com/crafillio)
 
 </div>
 

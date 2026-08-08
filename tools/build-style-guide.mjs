@@ -653,7 +653,7 @@ footer a:hover{text-decoration:underline}
 
   <footer>
     API Devkit — MIT © 2026 Amit Singh ·
-    <a href="https://crafillio.com">crafillio.com</a><br>
+    <a href="https://github.com/crafillio">github.com/crafillio</a><br>
     Generated from <code>packages/ui/src/styles.css</code> by <code>npm run style-guide</code>.
   </footer>
 </div>

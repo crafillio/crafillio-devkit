@@ -9,7 +9,6 @@
 I work across the stack — services, data and the interfaces on top of them — and I build
 developer tools that run on your machine and keep your data there.
 
-[![Portal](https://img.shields.io/badge/crafillio.com-e4007f?style=flat-square&logo=safari&logoColor=white)](https://crafillio.com)
 [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/crafillio)
 
 </div>

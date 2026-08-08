@@ -100,8 +100,8 @@ function Credit() {
     <div className="credit">
       <button
         className="credit-main"
-        onClick={() => void open('https://crafillio.com')}
-        title="Amit Singh — crafillio.com"
+        onClick={() => void open('https://github.com/crafillio')}
+        title="Amit Singh — open GitHub profile"
       >
         <img className="credit-avatar" src={AUTHOR_AVATAR} alt="" width="30" height="30" />
         <span className="credit-text">

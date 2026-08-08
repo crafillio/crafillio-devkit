@@ -188,7 +188,8 @@ export const en = {
   about: {
     title: 'About',
     creator: 'Creator & maintainer',
-    visitPortal: 'Visit portal',
+    viewProfile: 'GitHub profile',
+    repository: 'Repository',
     offline: 'Offline by design',
     offlineBody:
       'No telemetry, no analytics, no update pings. The only network traffic is the requests you make.',

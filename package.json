@@ -32,7 +32,7 @@
   "devDependencies": {
     "typescript": "^5.7.2"
   },
-  "homepage": "https://crafillio.com",
+  "homepage": "https://github.com/crafillio/crafillio-devkit",
   "repository": {
     "type": "git",
     "url": "https://github.com/crafillio/crafillio-devkit.git"

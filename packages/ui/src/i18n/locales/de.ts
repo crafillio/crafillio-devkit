@@ -47,7 +47,7 @@ export const messages: PartialMessages = {
     username: 'Benutzername', password: 'Passwort',
     verifyTls: 'TLS-Zertifikate prüfen', clientCerts: 'Client-Zertifikate',
   },
-  about: { title: 'Über', creator: 'Entwickler & Betreuer', visitPortal: 'Portal besuchen',
+  about: { title: 'Über', creator: 'Entwickler & Betreuer', viewProfile: 'GitHub-Profil', repository: 'Repository',
     dataFolder: 'Datenordner', secretStorage: 'Geheimnis-Speicher', builtWith: 'Erstellt mit' },
   perf: { concurrency: 'Parallelität', requests: 'Anfragen', throughput: 'Durchsatz',
     errorRate: 'Fehlerrate', mean: 'Mittelwert', runLoadTest: 'Lasttest starten', errors: 'Fehler' },

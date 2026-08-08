@@ -22,7 +22,6 @@ const outPath = outArg !== -1 ? process.argv[outArg + 1] : join(root, 'docs/inde
 
 const AUTHOR = 'Amit Singh';
 const HANDLE = 'crafillio';
-const PORTAL = 'https://crafillio.com';
 const REPO = 'https://github.com/crafillio/crafillio-devkit';
 const GH_USER = `https://github.com/${HANDLE}`;
 const RELEASES = `${REPO}/releases/latest`;
@@ -275,8 +274,8 @@ const body = `
         </div>
 
         <div class="cta">
-          <a class="btn btn-primary" href="${esc(PORTAL)}">crafillio.com</a>
-          <a class="btn" href="${esc(GH_USER)}">GitHub</a>
+          <a class="btn btn-primary" href="${esc(GH_USER)}">GitHub profile</a>
+          <a class="btn" href="${esc(REPO)}">Source</a>
         </div>
       </div>
     </div>
@@ -373,7 +372,7 @@ const body = `
     <span>© ${new Date().getFullYear()} ${esc(AUTHOR)} · Made by a developer, for developers, with <span class="heart">&hearts;</span></span>
     <span class="footer-links">
       <a href="${esc(GH_USER)}">GitHub</a>
-      <a href="${esc(PORTAL)}">crafillio.com</a>
+      <a href="${esc(REPO)}">Source</a>
     </span>
   </div>
 </footer>`;
@@ -494,10 +493,11 @@ h1{font-family:var(--display);font-size:clamp(32px,5vw,46px);font-weight:650;let
 /* Downloads */
 .download{padding:52px 0;border-top:1px solid var(--border)}
 .dl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:26px 0 18px}
-.dl{display:flex;align-items:center;gap:14px;padding:18px 20px;background:var(--surface);border:1px solid var(--border);border-radius:14px;text-decoration:none;color:var(--text);box-shadow:var(--shadow);transition:transform .12s,border-color .12s}
+.dl{position:relative;display:flex;align-items:center;gap:14px;padding:18px 20px;background:var(--surface);border:1px solid var(--border);border-radius:14px;text-decoration:none;color:var(--text);box-shadow:var(--shadow);transition:transform .12s,border-color .12s;overflow:hidden}
 .dl:hover{transform:translateY(-2px);border-color:var(--brand)}
 .dl.suggested{border-color:var(--brand);box-shadow:var(--shadow-lg)}
-.dl.suggested:after{content:'Your platform';position:absolute;margin:-46px 0 0 auto;right:18px;font-family:var(--mono);font-size:10.5px;color:var(--brand)}
+.dl.suggested:after{content:'Your platform';position:absolute;top:10px;right:12px;padding:2px 8px;border-radius:999px;background:var(--brand-soft);font-family:var(--mono);font-size:10px;color:var(--brand);line-height:1.5;pointer-events:none}
+.dl.suggested{padding-top:26px}
 .dl-icon{color:var(--brand);display:flex;flex-shrink:0}
 .dl-text strong{display:block;font-family:var(--display);font-size:16.5px;font-weight:620}
 .dl-text small{color:var(--dim);font-size:12.5px;font-family:var(--mono)}
@@ -708,7 +708,7 @@ apps/desktop      Electron shell.
     <span>© ${new Date().getFullYear()} ${esc(AUTHOR)} · MIT licensed</span>
     <span class="footer-links">
       <a href="${esc(GH_USER)}">GitHub</a>
-      <a href="${esc(PORTAL)}">crafillio.com</a>
+      <a href="${esc(REPO)}">Source</a>
     </span>
   </div>
 </footer>`;

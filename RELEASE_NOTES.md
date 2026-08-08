@@ -82,4 +82,4 @@ the file.
 
 ---
 
-MIT © 2026 [Amit Singh](https://crafillio.com)
+MIT © 2026 [Amit Singh](https://github.com/crafillio)
