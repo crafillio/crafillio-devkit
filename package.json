@@ -26,7 +26,8 @@
     "licenses": "node tools/license-report.mjs",
     "audit": "npm audit --omit=dev",
     "verify": "npm run typecheck && npm test && npm run licenses && npm run audit",
-    "style-guide": "node tools/build-style-guide.mjs"
+    "style-guide": "node tools/build-style-guide.mjs",
+    "site": "node tools/build-site.mjs"
   },
   "devDependencies": {
     "typescript": "^5.7.2"
