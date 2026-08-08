@@ -69,8 +69,10 @@ tail — which is exactly where the interesting latency lives.
 - **Environments** with `{{variable}}` interpolation anywhere in a request. Collections store the
   placeholder, never the value, so they stay safe to commit and share.
 - Undefined variables are reported, not silently replaced with an empty string
-- **Import from Postman** (Collection v2.1) — folders, auth, bodies and variables
+- **Import from Postman** (v2.1), **OpenAPI 3.x / Swagger 2.0** (JSON or YAML), **Bruno**
+  (a folder of `.bru` files) and **Hoppscotch**
 - **Import and export curl** — paste from devtools, or copy any request back out
+- **Export** collections and workflows as JSON, and any run as HTML or PDF
 - Collections are one JSON file each under `~/.crafillio/collections` — diffable, git-committable,
   portable by handing someone the file
 
@@ -133,11 +135,12 @@ npm test
 ```
 
 ```
-REST:       19 passed      Interop:  37 passed
-gRPC:       31 passed      Perf:     29 passed
-S3:         24 passed      Keyfile:  11 passed
-Store/vars: 14 passed
-                           165 total
+REST:        19 passed     Workflow:   53 passed
+gRPC:        31 passed     Network:    21 passed
+S3:          24 passed     Importers:  44 passed
+Store/vars:  14 passed     Perf:       29 passed
+Keyfile:     11 passed     Interop:    37 passed
+                                      283 total
 ```
 
 ## Architecture
@@ -167,6 +170,17 @@ replaceable — a Tauri or CLI front end could sit on the same engines untouched
 **The main process is bundled with esbuild** rather than shipping `node_modules`. The whole backend —
 grpc-js, the AWS SDK, undici, protobuf.js — compiles to a single ~1.5 MB file, which also sidesteps
 npm workspace hoisting that electron-builder handles poorly.
+
+## Languages
+
+English by default, with German, French, Spanish and Japanese available from the title bar.
+Translation is partial: the interface chrome — navigation, buttons, tabs, the network and about
+screens — is translated, and anything not yet covered falls back to English by design rather than
+showing a blank. Adding a language means one file under `packages/ui/src/i18n/locales`; English is
+the typed source of truth, so a missing key is a compile error rather than a gap discovered at
+runtime.
+
+The translations were not written by a native speaker and would benefit from review.
 
 ## Design
 

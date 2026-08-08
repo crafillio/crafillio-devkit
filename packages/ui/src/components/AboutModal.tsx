@@ -3,11 +3,13 @@ import { ExternalLink, FolderOpen, Github, Heart, ShieldCheck, WifiOff } from 'l
 import { Modal } from './Modal';
 import { Wordmark } from './Logo';
 import { useStore } from '../state/store';
+import { useT } from '../i18n';
 
 const PORTAL_URL = 'https://crafillio.com';
 const REPO_URL = 'https://github.com/crafillio/crafillio-devkit';
 
 export function AboutModal({ onClose }: { onClose: () => void }) {
+  const t = useT();
   const toast = useStore((s) => s.toast);
   const [version, setVersion] = useState('');
   const [dataDir, setDataDir] = useState('');
@@ -32,7 +34,7 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="About" width={560} onClose={onClose}>
+    <Modal title={t.about.title} width={560} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <Wordmark size={44} />
         <div className="meta" style={{ marginTop: 10 }}>
@@ -43,14 +45,14 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
       <div className="about-author">
         <div>
           <div style={{ fontWeight: 650 }}>Amit Singh</div>
-          <div className="meta">Creator &amp; maintainer</div>
+          <div className="meta">{t.about.creator}</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-sm" onClick={() => open(REPO_URL)}>
             <Github size={13} /> GitHub
           </button>
           <button className="btn btn-primary btn-sm" onClick={() => open(PORTAL_URL)}>
-            <ExternalLink size={13} /> Visit portal
+            <ExternalLink size={13} /> {t.about.visitPortal}
           </button>
         </div>
       </div>
@@ -59,7 +61,7 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
         <div className="about-card">
           <WifiOff size={16} style={{ color: 'var(--s3)' }} />
           <div>
-            <strong>Offline by design</strong>
+            <strong>{t.about.offline}</strong>
             <p>
               No telemetry, no analytics, no update pings. The only network traffic is the requests
               you make.
@@ -69,7 +71,7 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
         <div className="about-card">
           <ShieldCheck size={16} style={{ color: 'var(--accent)' }} />
           <div>
-            <strong>Your data stays yours</strong>
+            <strong>{t.about.yourData}</strong>
             <p>
               Collections are plain files on this machine.{' '}
               {secrets
@@ -83,7 +85,7 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="field">
-        <label>Data folder</label>
+        <label>{t.about.dataFolder}</label>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <code
             style={{ flex: 1, fontSize: 11.5, color: 'var(--text-muted)', wordBreak: 'break-all' }}
@@ -100,7 +102,7 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="field">
-        <label>Secret storage</label>
+        <label>{t.about.secretStorage}</label>
         <select
           className="select"
           value={backend}
@@ -144,7 +146,7 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="field">
-        <label>Built with</label>
+        <label>{t.about.builtWith}</label>
         <span className="hint">
           Electron, React, grpc-js, protobuf.js, AWS SDK for JavaScript, undici and CodeMirror — all
           under permissive open-source licences. Run <code>npm run licenses</code> for the full

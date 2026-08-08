@@ -7,6 +7,7 @@ import { CodeEditor } from './CodeEditor';
 import { blankRow } from '../lib/defaults';
 import { useStore, type RestTab } from '../state/store';
 import { ResponsePanel } from './ResponsePanel';
+import { useT } from '../i18n';
 import { PerfPanel } from './PerfPanel';
 
 const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function RestPanel({ tab, onSend }: Props) {
+  const t = useT();
   const [sub, setSub] = useState<SubTab>('params');
   const patchTab = useStore((s) => s.patchTab);
 
@@ -47,7 +49,7 @@ export function RestPanel({ tab, onSend }: Props) {
         <input
           className="input url"
           value={req.url}
-          placeholder="https://api.example.com/v1/users  —  {{variables}} supported"
+          placeholder={t.request.urlPlaceholder}
           spellCheck={false}
           onChange={(e) => patch({ url: e.target.value })}
           onKeyDown={(e) => {
@@ -57,19 +59,19 @@ export function RestPanel({ tab, onSend }: Props) {
 
         <button className="btn btn-primary" onClick={onSend} disabled={tab.sending}>
           {tab.sending ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
-          {tab.sending ? 'Sending' : 'Send'}
+          {tab.sending ? t.request.sending : t.common.send}
         </button>
       </div>
 
       {sub === 'perf' ? (
         <>
           <div className="subtabs">
-            <Sub id="params" label="Params" count={activeCount(req.query)} sub={sub} setSub={setSub} />
-            <Sub id="headers" label="Headers" count={activeCount(req.headers)} sub={sub} setSub={setSub} />
-            <Sub id="body" label="Body" dot={req.body.kind !== 'none'} sub={sub} setSub={setSub} />
-            <Sub id="auth" label="Auth" dot={req.auth.kind !== 'none'} sub={sub} setSub={setSub} />
-            <Sub id="settings" label="Settings" sub={sub} setSub={setSub} />
-            <Sub id="perf" label="Load test" icon sub={sub} setSub={setSub} />
+            <Sub id="params" label={t.request.params} count={activeCount(req.query)} sub={sub} setSub={setSub} />
+            <Sub id="headers" label={t.request.headers} count={activeCount(req.headers)} sub={sub} setSub={setSub} />
+            <Sub id="body" label={t.request.body} dot={req.body.kind !== 'none'} sub={sub} setSub={setSub} />
+            <Sub id="auth" label={t.request.auth} dot={req.auth.kind !== 'none'} sub={sub} setSub={setSub} />
+            <Sub id="settings" label={t.request.settings} sub={sub} setSub={setSub} />
+            <Sub id="perf" label={t.request.loadTest} icon sub={sub} setSub={setSub} />
           </div>
           <PerfPanel tab={tab} />
         </>
@@ -77,12 +79,12 @@ export function RestPanel({ tab, onSend }: Props) {
       <div className="split">
         <div className="pane">
           <div className="subtabs">
-            <Sub id="params" label="Params" count={activeCount(req.query)} sub={sub} setSub={setSub} />
-            <Sub id="headers" label="Headers" count={activeCount(req.headers)} sub={sub} setSub={setSub} />
-            <Sub id="body" label="Body" dot={req.body.kind !== 'none'} sub={sub} setSub={setSub} />
-            <Sub id="auth" label="Auth" dot={req.auth.kind !== 'none'} sub={sub} setSub={setSub} />
-            <Sub id="settings" label="Settings" sub={sub} setSub={setSub} />
-            <Sub id="perf" label="Load test" icon sub={sub} setSub={setSub} />
+            <Sub id="params" label={t.request.params} count={activeCount(req.query)} sub={sub} setSub={setSub} />
+            <Sub id="headers" label={t.request.headers} count={activeCount(req.headers)} sub={sub} setSub={setSub} />
+            <Sub id="body" label={t.request.body} dot={req.body.kind !== 'none'} sub={sub} setSub={setSub} />
+            <Sub id="auth" label={t.request.auth} dot={req.auth.kind !== 'none'} sub={sub} setSub={setSub} />
+            <Sub id="settings" label={t.request.settings} sub={sub} setSub={setSub} />
+            <Sub id="perf" label={t.request.loadTest} icon sub={sub} setSub={setSub} />
           </div>
 
           <div className="tab-body">

@@ -1,6 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { readFileSync } from 'node:fs';
+import tls from 'node:tls';
+import { SocksClient } from 'socks';
+import type { SocksProxy } from 'socks';
 import { Agent, ProxyAgent, request as undiciRequest, type Dispatcher } from 'undici';
 import {
   certificateFor,
@@ -72,6 +75,59 @@ function tlsOptionsFor(host: string, insecureTls: boolean): Record<string, unkno
   return options;
 }
 
+/** True for the SOCKS variants, which need their own connector. */
+function isSocks(protocol: ProxySettings['protocol']): boolean {
+  return protocol === 'socks4' || protocol === 'socks5';
+}
+
+/**
+ * An undici connector that dials through a SOCKS proxy.
+ *
+ * undici's ProxyAgent only speaks HTTP CONNECT, so SOCKS needs a connector
+ * that opens the tunnel itself and then, for https, upgrades the resulting
+ * socket to TLS — otherwise the certificate would never be checked.
+ */
+function socksConnector(
+  proxy: ProxySettings,
+  tlsOptions: Record<string, unknown>,
+): (options: { hostname: string; port?: number | string; protocol: string; servername?: string },
+    callback: (err: Error | null, socket?: unknown) => void) => void {
+  const type: SocksProxy['type'] = proxy.protocol === 'socks4' ? 4 : 5;
+
+  return (options, callback) => {
+    const port = Number(options.port) || (options.protocol === 'https:' ? 443 : 80);
+
+    void SocksClient.createConnection({
+      proxy: {
+        host: proxy.host,
+        port: proxy.port,
+        type,
+        userId: proxy.auth.enabled ? proxy.auth.username : undefined,
+        password: proxy.auth.enabled ? proxy.auth.password : undefined,
+      },
+      command: 'connect',
+      destination: { host: options.hostname, port },
+    })
+      .then(({ socket }) => {
+        if (options.protocol !== 'https:') {
+          callback(null, socket);
+          return;
+        }
+
+        const secure = tls.connect({
+          socket,
+          servername: options.servername ?? options.hostname,
+          ...(tlsOptions as tls.ConnectionOptions),
+        });
+        secure.once('secureConnect', () => callback(null, secure));
+        secure.once('error', (err) => callback(err));
+      })
+      .catch((err: Error) => {
+        callback(new Error(`SOCKS proxy ${proxy.host}:${proxy.port} — ${err.message}`));
+      });
+  };
+}
+
 /** Whether this URL should be proxied under the current policy. */
 function proxyFor(url: URL): ProxySettings | null {
   const proxy = policy.proxy;
@@ -112,7 +168,9 @@ function agentFor(url: URL, insecureTls: boolean, timeoutMs: number): Dispatcher
   };
 
   let agent: Dispatcher;
-  if (proxy) {
+  if (proxy && isSocks(proxy.protocol)) {
+    agent = new Agent({ connect: socksConnector(proxy, connect) as never, ...timeouts });
+  } else if (proxy) {
     const token = proxy.auth.enabled
       ? `Basic ${Buffer.from(`${proxy.auth.username}:${proxy.auth.password}`).toString('base64')}`
       : undefined;
@@ -402,6 +460,8 @@ function describeNetworkError(err: Error & { code?: string }, url: URL): string 
     case 'ERR_PROXY_CONNECT':
     case 'UND_ERR_PROXY':
       return `Could not reach the proxy. Check the proxy settings.`;
+    case 'ECONNREFUSED_SOCKS':
+      return `The SOCKS proxy refused the connection.`;
     default:
       return err.message || String(err);
   }

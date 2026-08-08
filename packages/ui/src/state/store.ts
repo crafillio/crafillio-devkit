@@ -14,6 +14,7 @@ import type {
 } from '@crafillio/core';
 import { blankGrpc, blankRest, uid } from '../lib/defaults';
 import { applyTheme } from '../components/ThemeToggle';
+import { useI18n, type LocaleCode } from '../i18n';
 
 /* ------------------------------------------------------------------ */
 /* Tabs                                                                */
@@ -257,6 +258,8 @@ export const useStore = create<State>((set, get) => ({
     const settings = await window.crafillio.settings.load();
     set({ settings });
     applyTheme(settings.theme);
+    // Language is applied here so a saved locale is live before first paint.
+    void useI18n.getState().setLocale((settings.locale ?? 'en') as LocaleCode);
     document.documentElement.style.setProperty('--font-size', `${settings.fontSize}px`);
   },
 

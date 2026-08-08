@@ -263,6 +263,7 @@ export function installMockBridge(): void {
         fontSize: 13,
         keepHistory: true,
         secretStorage: 'keyfile',
+        locale: 'en',
         proxy: {
           enabled: false, protocol: 'http', host: '', port: 8080,
           forHttp: true, forHttps: true,
@@ -339,6 +340,8 @@ export function installMockBridge(): void {
       create: notImplemented,
       save: async (w) => w,
       remove: async () => {},
+      export: async () => null,
+      import: async () => null,
       run: notImplemented,
       cancel: async () => {},
       onEvent: () => () => {},
@@ -351,6 +354,9 @@ export function installMockBridge(): void {
       importCurl: notImplemented,
       exportCurl: async () => "curl -X GET 'https://api.example.com'",
       importPostman: async () => null,
+      importOpenApi: async () => null,
+      importHoppscotch: async () => null,
+      importBruno: async () => null,
     },
 
     dialog: {

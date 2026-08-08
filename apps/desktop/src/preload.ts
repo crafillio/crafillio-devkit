@@ -107,6 +107,8 @@ const api: CrafillioApi = {
     create: call('workflow:create'),
     save: call('workflow:save'),
     remove: call('workflow:remove'),
+    export: call('workflow:export'),
+    import: call('workflow:import'),
     run: call('workflow:run'),
     cancel: call('workflow:cancel'),
     onEvent: (listener) => subscribe('workflow:event', listener as never),
@@ -119,6 +121,9 @@ const api: CrafillioApi = {
     importCurl: call('interop:importCurl'),
     exportCurl: call('interop:exportCurl'),
     importPostman: call('interop:importPostman'),
+    importOpenApi: call('interop:importOpenApi'),
+    importHoppscotch: call('interop:importHoppscotch'),
+    importBruno: call('interop:importBruno'),
   },
 
   dialog: {

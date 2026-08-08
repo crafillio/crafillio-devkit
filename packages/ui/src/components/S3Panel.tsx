@@ -239,7 +239,11 @@ export function S3Panel({ tab }: { tab: S3Tab }) {
           ))}
         </select>
 
-        <button className="btn btn-icon" onClick={() => void loadObjects()} title="Refresh">
+        <button
+          className="btn btn-icon"
+          onClick={() => void loadObjects()}
+          title="Reload this bucket listing"
+        >
           {busy ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
         </button>
 
@@ -564,6 +568,7 @@ function MetadataEditor({
             />
             <button
               className="btn btn-ghost btn-icon"
+              title="Remove this metadata pair"
               onClick={() => setRows(rows.filter((_, i) => i !== index))}
             >
               <Trash2 size={12} />

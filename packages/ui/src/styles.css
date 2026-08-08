@@ -1834,3 +1834,30 @@ kbd {
   color: var(--accent);
   box-shadow: inset 2px 0 0 var(--accent);
 }
+
+/* Language picker */
+.lang-picker {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.lang-picker:hover { border-color: var(--border-strong); color: var(--text-muted); }
+.lang-picker select {
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* An author `display` rule silently beats the UA style for [hidden]; this
+   makes the attribute mean what everyone expects it to mean. */
+[hidden] { display: none !important; }

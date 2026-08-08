@@ -100,6 +100,7 @@ export function EnvironmentsModal({ onClose }: { onClose: () => void }) {
               <span className="row-label">{env.name}</span>
               <button
                 className="row-action"
+                title="Delete this environment"
                 onClick={(e) => {
                   e.stopPropagation();
                   setEnvs(envs.filter((x) => x.id !== env.id));
@@ -202,6 +203,7 @@ export function EnvironmentsModal({ onClose }: { onClose: () => void }) {
                         <button
                           className="row-action"
                           style={{ opacity: 1 }}
+                          title="Remove this variable"
                           onClick={() =>
                             patchSelected(selected.variables.filter((v) => v.id !== variable.id))
                           }

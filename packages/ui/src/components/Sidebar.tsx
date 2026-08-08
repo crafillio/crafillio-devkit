@@ -23,6 +23,7 @@ import { useStore } from '../state/store';
 import { askChoice, askConfirm, askName } from '../state/dialogs';
 import { formatDate } from '../lib/format';
 import { uid } from '../lib/defaults';
+import { useT } from '../i18n';
 
 type Section = 'collections' | 'workflows' | 'history' | 's3';
 
@@ -31,6 +32,7 @@ interface Props {
 }
 
 export function Sidebar({ onEditConnection }: Props) {
+  const t = useT();
   const [section, setSection] = useState<Section>('collections');
 
   return (
@@ -39,28 +41,28 @@ export function Sidebar({ onEditConnection }: Props) {
         <button
           className={`sidebar-tab ${section === 'collections' ? 'active' : ''}`}
           onClick={() => setSection('collections')}
-          title="Collections"
+          title={t.sidebar.collections}
         >
           <Library size={14} />
         </button>
         <button
           className={`sidebar-tab ${section === 'workflows' ? 'active' : ''}`}
           onClick={() => setSection('workflows')}
-          title="Workflows"
+          title={t.sidebar.workflows}
         >
           <WorkflowIcon size={14} />
         </button>
         <button
           className={`sidebar-tab ${section === 'history' ? 'active' : ''}`}
           onClick={() => setSection('history')}
-          title="History"
+          title={t.sidebar.history}
         >
           <History size={14} />
         </button>
         <button
           className={`sidebar-tab ${section === 's3' ? 'active' : ''}`}
           onClick={() => setSection('s3')}
-          title="S3 connections"
+          title={t.sidebar.s3}
         >
           <Cloud size={14} />
         </button>
@@ -79,6 +81,7 @@ export function Sidebar({ onEditConnection }: Props) {
 /* ------------------------------------------------------------------ */
 
 function Collections() {
+  const t = useT();
   const collections = useStore((s) => s.collections);
   const refresh = useStore((s) => s.refreshCollections);
   const toast = useStore((s) => s.toast);
@@ -113,19 +116,33 @@ function Collections() {
       confirmLabel: 'Choose file',
       options: [
         { value: 'postman', label: 'Postman collection', hint: 'v2.1 export' },
+        { value: 'openapi', label: 'OpenAPI / Swagger', hint: 'JSON or YAML' },
+        { value: 'bruno', label: 'Bruno collection', hint: 'folder of .bru files' },
+        { value: 'hoppscotch', label: 'Hoppscotch collection', hint: 'JSON export' },
         { value: 'native', label: 'API Devkit collection', hint: '.json export' },
       ],
     });
     if (!choice) return;
 
+    // Each external format has its own picker and parser; the native one is a
+    // plain round trip of our own export.
+    const importers: Record<string, { label: string; run: () => Promise<
+      { requestCount: number; skipped: string[] } | null > }> = {
+      postman: { label: 'Postman', run: () => window.crafillio.interop.importPostman() },
+      openapi: { label: 'OpenAPI', run: () => window.crafillio.interop.importOpenApi() },
+      bruno: { label: 'Bruno', run: () => window.crafillio.interop.importBruno() },
+      hoppscotch: { label: 'Hoppscotch', run: () => window.crafillio.interop.importHoppscotch() },
+    };
+
     try {
-      if (choice === 'postman') {
-        const result = await window.crafillio.interop.importPostman();
+      const importer = importers[choice];
+      if (importer) {
+        const result = await importer.run();
         if (!result) return;
         await refresh();
         toast(
           'success',
-          `Imported ${result.requestCount} request${result.requestCount === 1 ? '' : 's'} from Postman` +
+          `Imported ${result.requestCount} request${result.requestCount === 1 ? '' : 's'} from ${importer.label}` +
             (result.skipped.length ? ` (${result.skipped.length} skipped)` : ''),
         );
       } else {
@@ -145,7 +162,7 @@ function Collections() {
     <>
       <div className="sidebar-actions">
         <button className="btn btn-sm" onClick={create} style={{ flex: 1 }}>
-          <FolderPlus size={13} /> New
+          <FolderPlus size={13} /> {t.common.add}
         </button>
         <button className="btn btn-sm btn-icon" onClick={importCollection} title="Import collection">
           <Upload size={13} />
@@ -156,7 +173,7 @@ function Collections() {
         <Search size={12} />
         <input
           value={filter}
-          placeholder="Filter requests"
+          placeholder={t.sidebar.filterRequests}
           onChange={(e) => setFilter(e.target.value)}
         />
       </div>
@@ -406,6 +423,7 @@ function RequestRow({
   onOpen: () => void;
   onChanged: () => Promise<void>;
 }) {
+  const t = useT();
   const toast = useStore((s) => s.toast);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -481,16 +499,16 @@ function RequestRow({
           <div className="menu-scrim" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
           <div className="context-menu" onClick={(e) => e.stopPropagation()}>
             <button onClick={rename}>
-              <Pencil size={12} /> Rename
+              <Pencil size={12} /> {t.common.rename}
             </button>
             <button onClick={duplicate}>
-              <Copy size={12} /> Duplicate
+              <Copy size={12} /> {t.sidebar.duplicate}
             </button>
             <button onClick={copyAsCurl}>
-              <FilePlus2 size={12} /> Copy as curl
+              <FilePlus2 size={12} /> {t.sidebar.copyAsCurl}
             </button>
             <button className="danger" onClick={remove}>
-              <Trash2 size={12} /> Delete
+              <Trash2 size={12} /> {t.common.delete}
             </button>
           </div>
         </>
@@ -504,6 +522,7 @@ function RequestRow({
 /* ------------------------------------------------------------------ */
 
 function Workflows() {
+  const t = useT();
   const openWorkflow = useStore((s) => s.openWorkflow);
   const activeWorkflowId = useStore((s) => s.activeWorkflowId);
   const toast = useStore((s) => s.toast);
@@ -539,17 +558,34 @@ function Workflows() {
   return (
     <>
       <div className="sidebar-actions">
-        <button className="btn btn-sm" style={{ flex: 1 }} onClick={create}>
-          <Plus size={13} /> New workflow
+        <button className="btn btn-sm" style={{ flex: 1 }} onClick={create} title="Create a new workflow">
+          <Plus size={13} /> {t.sidebar.newWorkflow}
+        </button>
+        <button
+          className="btn btn-sm btn-icon"
+          title="Import a workflow file"
+          onClick={async () => {
+            try {
+              const imported = await window.crafillio.workflow.import();
+              if (!imported) return;
+              await load();
+              openWorkflow(imported.id);
+              toast('success', `Imported "${imported.name}"`);
+            } catch (err) {
+              toast('error', (err as Error).message);
+            }
+          }}
+        >
+          <Upload size={13} />
         </button>
       </div>
 
       <div className="sidebar-scroll">
         {items.length === 0 && (
           <div className="empty-note">
-            No workflows yet.
+            {t.sidebar.noWorkflows}
             <br />
-            Chain requests together on a canvas.
+            {t.sidebar.noWorkflowsHint}
           </div>
         )}
 
@@ -594,6 +630,16 @@ function Workflows() {
                     }}
                   >
                     <Pencil size={12} />
+                  </button>
+                  <button
+                    className="row-action"
+                    title="Export this workflow to a file"
+                    onClick={async () => {
+                      const path = await window.crafillio.workflow.export(workflow.id);
+                      if (path) toast('success', `Exported to ${path}`);
+                    }}
+                  >
+                    <Download size={12} />
                   </button>
                   <button
                     className="row-action danger"
@@ -651,6 +697,7 @@ function Workflows() {
 /* ------------------------------------------------------------------ */
 
 function HistoryList() {
+  const t = useT();
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
 
   const load = useCallback(async (): Promise<void> => {
@@ -667,8 +714,8 @@ function HistoryList() {
   return (
     <>
       <div className="sidebar-actions">
-        <button className="btn btn-sm" style={{ flex: 1 }} onClick={load}>
-          Refresh
+        <button className="btn btn-sm" style={{ flex: 1 }} onClick={load} title="Reload history">
+          {t.common.refresh}
         </button>
         <button
           className="btn btn-sm btn-danger"
@@ -684,12 +731,12 @@ function HistoryList() {
             await load();
           }}
         >
-          Clear
+          {t.common.clear}
         </button>
       </div>
 
       <div className="sidebar-scroll">
-        {entries.length === 0 && <div className="empty-note">Nothing sent yet.</div>}
+        {entries.length === 0 && <div className="empty-note">{t.sidebar.noHistory}</div>}
         {entries.map((entry) => (
           <div key={entry.id} className="tree-row" style={{ cursor: 'default' }}>
             <span className={`method-chip m-${entry.protocol.toUpperCase()}`}>
@@ -714,6 +761,7 @@ function HistoryList() {
 /* ------------------------------------------------------------------ */
 
 function Connections({ onEdit }: { onEdit: (id: string | null) => void }) {
+  const t = useT();
   const connections = useStore((s) => s.connections);
   const refresh = useStore((s) => s.refreshConnections);
   const newTab = useStore((s) => s.newTab);
@@ -722,16 +770,16 @@ function Connections({ onEdit }: { onEdit: (id: string | null) => void }) {
     <>
       <div className="sidebar-actions">
         <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => onEdit(null)}>
-          <Plus size={13} /> Add connection
+          <Plus size={13} /> {t.sidebar.addConnection}
         </button>
       </div>
 
       <div className="sidebar-scroll">
         {connections.length === 0 && (
           <div className="empty-note">
-            No S3 connections.
+            {t.sidebar.noConnections}
             <br />
-            Works with AWS, MinIO, R2 and any S3-compatible gateway.
+            {t.sidebar.noConnectionsHint}
           </div>
         )}
 

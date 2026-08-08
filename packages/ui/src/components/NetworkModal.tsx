@@ -4,6 +4,7 @@ import type { ClientCertificate, Settings } from '@crafillio/core';
 import { Modal } from './Modal';
 import { useStore } from '../state/store';
 import { uid } from '../lib/defaults';
+import { useT } from '../i18n';
 
 /**
  * Proxy and TLS configuration.
@@ -13,6 +14,7 @@ import { uid } from '../lib/defaults';
  * request would be tedious and easy to get inconsistent.
  */
 export function NetworkModal({ onClose }: { onClose: () => void }) {
+  const t = useT();
   const settings = useStore((s) => s.settings);
   const refreshSettings = useStore((s) => s.refreshSettings);
   const toast = useStore((s) => s.toast);
@@ -35,7 +37,7 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
     try {
       await window.crafillio.settings.save({ proxy, tls });
       await refreshSettings();
-      toast('success', 'Network settings saved');
+      toast('success', t.network.saved);
       onClose();
     } catch (err) {
       toast('error', (err as Error).message);
@@ -59,16 +61,16 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal
-      title="Network"
+      title={t.network.title}
       width={680}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose}>
-            Cancel
+            {t.common.cancel}
           </button>
           <button className="btn btn-primary" onClick={save} disabled={saving}>
-            Save
+            {t.common.save}
           </button>
         </>
       }
@@ -78,11 +80,11 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
           className={`subtab ${tab === 'proxy' ? 'active' : ''}`}
           onClick={() => setTab('proxy')}
         >
-          Proxy
+          {t.network.proxy}
           {proxy.enabled ? <span className="count">on</span> : null}
         </button>
         <button className={`subtab ${tab === 'tls' ? 'active' : ''}`} onClick={() => setTab('tls')}>
-          TLS / SSL
+          {t.network.tls}
           {!tls.verify ? <span className="count">off</span> : null}
         </button>
       </div>
@@ -96,26 +98,28 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
               checked={proxy.enabled}
               onChange={(e) => setProxy({ ...proxy, enabled: e.target.checked })}
             />
-            Send requests through a proxy
+            {t.network.useProxy}
           </label>
 
           <div className="field-row">
             <div className="field">
-              <label>Proxy protocol</label>
+              <label>{t.network.proxyProtocol}</label>
               <select
                 className="select"
                 value={proxy.protocol}
                 disabled={!proxy.enabled}
                 onChange={(e) =>
-                  setProxy({ ...proxy, protocol: e.target.value as 'http' | 'https' })
+                  setProxy({ ...proxy, protocol: e.target.value as typeof proxy.protocol })
                 }
               >
-                <option value="http">http</option>
-                <option value="https">https</option>
+                <option value="http">HTTP</option>
+                <option value="https">HTTPS</option>
+                <option value="socks5">SOCKS5</option>
+                <option value="socks4">SOCKS4</option>
               </select>
             </div>
             <div className="field">
-              <label>Port</label>
+              <label>{t.network.port}</label>
               <input
                 className="input input-mono"
                 type="number"
@@ -129,7 +133,7 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="field">
-            <label>Proxy host</label>
+            <label>{t.network.proxyHost}</label>
             <input
               className="input input-mono"
               value={proxy.host}
@@ -139,8 +143,16 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
             />
           </div>
 
+          {(proxy.protocol === 'socks4' || proxy.protocol === 'socks5') && (
+            <span className="hint">
+              SOCKS tunnels the whole TCP connection, so HTTP and HTTPS both go through it.
+              {proxy.protocol === 'socks4' && ' SOCKS4 has no password support — only a user id.'}
+            </span>
+          )}
+
+          {!proxy.protocol.startsWith('socks') && (
           <div className="field">
-            <label>Use the proxy for</label>
+            <label>{t.network.useProxyFor}</label>
             <div style={{ display: 'flex', gap: 18 }}>
               <label className="inline-check">
                 <input
@@ -164,6 +176,7 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
               </label>
             </div>
           </div>
+          )}
 
           <label className="inline-check">
             <input
@@ -175,13 +188,13 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
                 setProxy({ ...proxy, auth: { ...proxy.auth, enabled: e.target.checked } })
               }
             />
-            The proxy requires authentication
+            {t.network.proxyAuth}
           </label>
 
           {proxy.auth.enabled && (
             <div className="field-row">
               <div className="field">
-                <label>Username</label>
+                <label>{t.network.username}</label>
                 <input
                   className="input"
                   value={proxy.auth.username}
@@ -192,7 +205,7 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
                 />
               </div>
               <div className="field">
-                <label>Password</label>
+                <label>{t.network.password}</label>
                 <input
                   className="input"
                   type="password"
@@ -207,7 +220,7 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
           )}
 
           <div className="field">
-            <label>Bypass for these hosts</label>
+            <label>{t.network.bypass}</label>
             <input
               className="input input-mono"
               value={proxy.bypass.join(', ')}
@@ -238,7 +251,7 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
               checked={tls.verify}
               onChange={(e) => setTls({ ...tls, verify: e.target.checked })}
             />
-            Verify TLS certificates
+            {t.network.verifyTls}
           </label>
 
           {!tls.verify && (
@@ -251,7 +264,7 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
           )}
 
           <div className="field">
-            <label>Trust an additional CA</label>
+            <label>{t.network.trustCa}</label>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <button
                 className="btn btn-sm"
@@ -262,7 +275,7 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
                   if (path) setTls({ ...tls, caPath: path });
                 }}
               >
-                <FileKey size={12} /> Choose CA file
+                <FileKey size={12} /> {t.network.chooseCa}
               </button>
               <span className="meta" style={{ flex: 1, minWidth: 0, wordBreak: 'break-all' }}>
                 {tls.caPath || 'None — system roots only'}
@@ -280,7 +293,7 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="field">
-            <label>Client certificates</label>
+            <label>{t.network.clientCerts}</label>
             <span className="hint" style={{ marginBottom: 4 }}>
               Sent when a server asks for mutual TLS. Matched by host — an exact name wins over a{' '}
               <code>*.</code> wildcard.
@@ -339,7 +352,7 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
                   onClear={() => updateCert(cert.id, { pfxPath: '' })}
                 />
                 <div className="field">
-                  <label>Passphrase</label>
+                  <label>{t.network.passphrase}</label>
                   <input
                     className="input"
                     type="password"
@@ -365,7 +378,7 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
               })
             }
           >
-            <Plus size={12} /> Add client certificate
+            <Plus size={12} /> {t.network.addClientCert}
           </button>
         </>
       )}

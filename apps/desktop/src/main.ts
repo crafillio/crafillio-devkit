@@ -25,12 +25,16 @@ import {
   importCurl,
   exportCurl,
   importPostmanCollection,
+  importOpenApi,
+  importHoppscotch,
+  importBrunoFolder,
   workflows,
   runWorkflow,
   renderReport,
   type LoadProfile,
   type LoadReport,
   type LoadTarget,
+  type Workflow,
   registerSecretProvider,
   setPreferredSecretBackend,
   preferredSecretBackend,
@@ -406,6 +410,36 @@ function registerHandlers(): void {
     activeWorkflowRuns.get(runId)?.cancel();
   });
 
+  handle('workflow:export', async (workflowId: string) => {
+    const workflow = await workflows.getWorkflow(workflowId);
+    if (!workflow) throw new Error('That workflow no longer exists.');
+    const slug = workflow.name.replace(/[^\w.-]+/g, '-').toLowerCase();
+    const result = await dialog.showSaveDialog({
+      defaultPath: `${slug}.workflow.json`,
+      filters: [{ name: 'API Devkit workflow', extensions: ['json'] }],
+    });
+    if (result.canceled || !result.filePath) return null;
+    await writeFile(result.filePath, JSON.stringify(workflow, null, 2), 'utf8');
+    return result.filePath;
+  });
+
+  handle('workflow:import', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'API Devkit workflow', extensions: ['json'] }],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+
+    const { readFile } = await import('node:fs/promises');
+    const parsed = JSON.parse(await readFile(result.filePaths[0]!, 'utf8')) as Workflow;
+    if (!parsed || !Array.isArray(parsed.steps)) {
+      throw new Error('That file is not a workflow — no "steps" array was found.');
+    }
+    // Always a fresh id, so importing never overwrites an existing workflow.
+    const created = await workflows.createWorkflow(parsed.name ?? 'Imported workflow');
+    return workflows.saveWorkflow({ ...parsed, id: created.id, name: created.name });
+  });
+
   handle('workflow:exportReport', async (result: Parameters<typeof renderReport>[0], workflow?: Parameters<typeof renderReport>[1]) => {
     const stamp = new Date(result.startedAt).toISOString().slice(0, 19).replace(/[:T]/g, '-');
     const slug = result.workflowName.replace(/[^\w.-]+/g, '-').toLowerCase();
@@ -467,6 +501,42 @@ function registerHandlers(): void {
   /* Interop */
   handle('interop:importCurl', (command: string) => importCurl(command));
   handle('interop:exportCurl', (request: Parameters<typeof exportCurl>[0]) => exportCurl(request));
+
+  handle('interop:importOpenApi', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'OpenAPI / Swagger', extensions: ['json', 'yaml', 'yml'] }],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+
+    const { readFile } = await import('node:fs/promises');
+    const parsed = importOpenApi(await readFile(result.filePaths[0]!, 'utf8'));
+    const saved = await collections.importCollection(JSON.stringify(parsed.collection));
+    return { collection: saved, requestCount: parsed.requestCount, skipped: parsed.skipped };
+  });
+
+  handle('interop:importHoppscotch', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'Hoppscotch collection', extensions: ['json'] }],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+
+    const { readFile } = await import('node:fs/promises');
+    const parsed = importHoppscotch(await readFile(result.filePaths[0]!, 'utf8'));
+    const saved = await collections.importCollection(JSON.stringify(parsed.collection));
+    return { collection: saved, requestCount: parsed.requestCount, skipped: parsed.skipped };
+  });
+
+  handle('interop:importBruno', async () => {
+    // Bruno is a directory of .bru files, so this picks a folder not a file.
+    const result = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+    if (result.canceled || result.filePaths.length === 0) return null;
+
+    const parsed = await importBrunoFolder(result.filePaths[0]!);
+    const saved = await collections.importCollection(JSON.stringify(parsed.collection));
+    return { collection: saved, requestCount: parsed.requestCount, skipped: parsed.skipped };
+  });
 
   handle('interop:importPostman', async () => {
     const result = await dialog.showOpenDialog({

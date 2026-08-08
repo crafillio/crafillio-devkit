@@ -30,7 +30,7 @@ export function Modal({ title, onClose, children, footer, width }: Props) {
       <div className="modal" style={width ? { maxWidth: width } : undefined}>
         <div className="modal-head">
           <span>{title}</span>
-          <button className="btn btn-ghost btn-icon" onClick={onClose} title="Close">
+          <button className="btn btn-ghost btn-icon" onClick={onClose} title="Close (Esc)">
             <X size={15} />
           </button>
         </div>

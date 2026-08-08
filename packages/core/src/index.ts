@@ -74,4 +74,13 @@ export type {
 
 export { importCurl, exportCurl } from './interop/curl.js';
 export { importPostmanCollection } from './interop/postman.js';
+export { importOpenApi, type OpenApiImportResult } from './interop/openapi.js';
+export { importHoppscotch, type HoppscotchImportResult } from './interop/hoppscotch.js';
+export {
+  importBrunoFolder,
+  parseBru,
+  parseBlocks,
+  parseDict,
+  type BrunoImportResult,
+} from './interop/bruno.js';
 export type { PostmanImportResult } from './interop/postman.js';

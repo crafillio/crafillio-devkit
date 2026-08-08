@@ -39,6 +39,12 @@ export interface EnvFile {
   activeId: string | null;
 }
 
+export interface ImportOutcome {
+  collection: Collection;
+  requestCount: number;
+  skipped: string[];
+}
+
 export interface PickedFile {
   path: string;
   name: string;
@@ -199,6 +205,10 @@ export interface CrafillioApi {
     create(name: string): Promise<Workflow>;
     save(workflow: Workflow): Promise<Workflow>;
     remove(id: string): Promise<void>;
+    /** Writes the workflow to a file. Null when cancelled. */
+    export(id: string): Promise<string | null>;
+    /** Reads a workflow file in under a fresh id. Null when cancelled. */
+    import(): Promise<Workflow | null>;
     /** Resolves with the run id; stage events arrive via `onEvent`. */
     run(workflow: Workflow): Promise<string>;
     cancel(runId: string): Promise<void>;
@@ -216,7 +226,13 @@ export interface CrafillioApi {
     importCurl(command: string): Promise<RestRequest>;
     exportCurl(request: RestRequest): Promise<string>;
     /** Opens a file picker for a Postman v2.1 export. Null when cancelled. */
-    importPostman(): Promise<{ collection: Collection; requestCount: number; skipped: string[] } | null>;
+    importPostman(): Promise<ImportOutcome | null>;
+    /** OpenAPI 3.x or Swagger 2.0, JSON or YAML. */
+    importOpenApi(): Promise<ImportOutcome | null>;
+    /** Hoppscotch JSON collection export. */
+    importHoppscotch(): Promise<ImportOutcome | null>;
+    /** Bruno collection — picks the folder holding bruno.json. */
+    importBruno(): Promise<ImportOutcome | null>;
   };
 
   dialog: {

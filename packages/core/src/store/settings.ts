@@ -17,14 +17,19 @@ export interface Settings {
    * machines without a usable keychain.
    */
   secretStorage: 'keyfile' | 'os';
+  /** UI language. English is the default and the fallback. */
+  locale: string;
   proxy: ProxySettings;
   tls: TlsSettings;
 }
 
 export interface ProxySettings {
   enabled: boolean;
-  /** Scheme used to reach the proxy itself. */
-  protocol: 'http' | 'https';
+  /**
+   * How the proxy is reached. SOCKS5 is tunnelled by a custom connector;
+   * http/https use undici's own proxy support.
+   */
+  protocol: 'http' | 'https' | 'socks4' | 'socks5';
   host: string;
   port: number;
   /** Send requests for these protocols through the proxy. */
@@ -64,6 +69,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fontSize: 13,
   keepHistory: true,
   secretStorage: 'keyfile',
+  locale: 'en',
   proxy: {
     enabled: false,
     protocol: 'http',

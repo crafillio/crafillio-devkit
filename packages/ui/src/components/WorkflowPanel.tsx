@@ -31,6 +31,7 @@ import { formatBytes, formatMs, tryPrettyJson } from '../lib/format';
 import { blankRest, uid } from '../lib/defaults';
 import { useStore } from '../state/store';
 import { askConfirm, askName } from '../state/dialogs';
+import { useT } from '../i18n';
 
 /**
  * Workflow builder and runner.
@@ -42,6 +43,7 @@ import { askConfirm, askName } from '../state/dialogs';
  * of whether the step passed.
  */
 export function WorkflowPanel() {
+  const t = useT();
   const toast = useStore((s) => s.toast);
   const activeWorkflowId = useStore((s) => s.activeWorkflowId);
 
@@ -122,14 +124,14 @@ export function WorkflowPanel() {
         toast(
           status === 'success' ? 'success' : 'error',
           status === 'success'
-            ? 'Workflow completed'
+            ? t.workflow.completed
             : status === 'partial'
-              ? 'Workflow finished with failures'
-              : 'Workflow failed',
+              ? t.workflow.finishedWithFailures
+              : t.workflow.failed,
         );
       }
     });
-  }, [toast]);
+  }, [toast, t]);
 
   /* ---------------------------------------------------------------- */
 
@@ -150,7 +152,7 @@ export function WorkflowPanel() {
     setCurrent(saved);
     setDirty(false);
     await refresh();
-    toast('success', 'Workflow saved');
+    toast('success', t.common.save);
   };
 
   const createWorkflow = async (): Promise<void> => {
@@ -266,7 +268,7 @@ export function WorkflowPanel() {
           Save{dirty ? ' •' : ''}
         </button>
         <button className="btn btn-sm" onClick={addStep}>
-          <Plus size={12} /> Add step
+          <Plus size={12} /> {t.workflow.addStep}
         </button>
 
         <div style={{ flex: 1 }} />
@@ -280,7 +282,7 @@ export function WorkflowPanel() {
                 if (path) toast('success', `Report saved to ${path}`);
               }}
             >
-              <FileDown size={13} /> Export report
+              <FileDown size={13} /> {t.workflow.exportReport}
             </button>
             <button
               className="btn btn-sm"
@@ -293,24 +295,24 @@ export function WorkflowPanel() {
                 }
               }}
             >
-              <FileDown size={13} /> Export PDF
+              <FileDown size={13} /> {t.workflow.exportPdf}
             </button>
             <button
               className="btn btn-sm"
               onClick={() => void window.crafillio.workflow.openReport(result, current)}
             >
-              Open report
+              {t.workflow.openReport}
             </button>
           </>
         )}
 
         {running ? (
           <button className="btn btn-danger" onClick={stop}>
-            <Square size={13} /> Stop
+            <Square size={13} /> {t.common.stop}
           </button>
         ) : (
           <button className="btn btn-primary" onClick={run} disabled={current.steps.length === 0}>
-            <Play size={14} /> Run workflow
+            <Play size={14} /> {t.workflow.runWorkflow}
           </button>
         )}
       </div>
@@ -663,6 +665,7 @@ function InputsEditor({
             <div style={{ flex: 1 }} />
             <button
               className="btn btn-ghost btn-sm"
+              title="Remove this input"
               onClick={() => onChange({ inputs: step.inputs.filter((i) => i.id !== input.id) })}
             >
               <Trash2 size={12} />
@@ -845,6 +848,7 @@ function OutputsEditor({
                 <button
                   className="row-action"
                   style={{ opacity: 1 }}
+                  title="Remove this output"
                   onClick={() =>
                     onChange({ outputs: step.outputs.filter((o) => o.id !== output.id) })
                   }
@@ -921,7 +925,7 @@ function StageInspector({ record, onClose }: { record: StepRecord; onClose: () =
               {formatBytes(record.response.size)}
             </span>
           )}
-          <button className="btn btn-ghost btn-icon" onClick={onClose}>
+          <button className="btn btn-ghost btn-icon" onClick={onClose} title="Close (Esc)">
             <X size={15} />
           </button>
         </header>

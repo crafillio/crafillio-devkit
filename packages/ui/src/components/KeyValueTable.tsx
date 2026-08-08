@@ -113,7 +113,7 @@ export function KeyValueTable({
                     className="row-action"
                     style={{ opacity: 1 }}
                     onClick={() => remove(row.id)}
-                    title="Remove row"
+                    title="Remove this row"
                   >
                     <X size={13} />
                   </button>

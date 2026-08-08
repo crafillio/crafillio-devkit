@@ -13,12 +13,15 @@ import { DialogHost } from './components/DialogHost';
 import { Logo } from './components/Logo';
 import { ThemeToggle } from './components/ThemeToggle';
 import { NetworkModal } from './components/NetworkModal';
+import { LanguagePicker } from './components/LanguagePicker';
 import { Toasts } from './components/Toasts';
 import { useActiveTab, useStore, type GrpcTab, type RestTab } from './state/store';
 import { uid } from './lib/defaults';
 import { askChoice, askName } from './state/dialogs';
+import { useT } from './i18n';
 
 export function App() {
+  const t = useT();
   const store = useStore();
   const tab = useActiveTab();
 
@@ -297,9 +300,9 @@ export function App() {
         <button
           className="btn btn-sm"
           onClick={importFromCurl}
-          title="Import a curl command from the clipboard"
+          title="Import a curl command from the clipboard — Ctrl/⌘ V it first"
         >
-          <Terminal size={13} /> Import curl
+          <Terminal size={13} /> {t.titlebar.importCurl}
         </button>
 
         <select
@@ -312,7 +315,7 @@ export function App() {
           }}
           title="Active environment"
         >
-          <option value="">No environment</option>
+          <option value="">{t.common.none}</option>
           {store.environments.map((env) => (
             <option key={env.id} value={env.id}>
               {env.name}
@@ -320,21 +323,23 @@ export function App() {
           ))}
         </select>
 
-        <button className="btn btn-icon" onClick={() => setShowEnvs(true)} title="Environments">
+        <button className="btn btn-icon" onClick={() => setShowEnvs(true)} title={t.titlebar.environments}>
           <Layers size={15} />
         </button>
 
         <button
           className="btn btn-icon"
           onClick={() => setShowNetwork(true)}
-          title="Proxy and TLS settings"
+          title={t.titlebar.network}
         >
           <Globe size={15} />
         </button>
 
+        <LanguagePicker />
+
         <ThemeToggle />
 
-        <button className="btn btn-icon" onClick={() => setShowAbout(true)} title="About">
+        <button className="btn btn-icon" onClick={() => setShowAbout(true)} title={t.titlebar.about}>
           <Info size={15} />
         </button>
       </header>
@@ -374,25 +379,41 @@ export function App() {
               </button>
             ))}
 
-            <button className="tab-new" onClick={() => store.newTab('rest')} title="New tab">
+            <button
+              className="tab-new"
+              onClick={() => store.newTab('rest')}
+              title="New request (⌘T)"
+            >
               <Plus size={14} />
             </button>
 
             <div style={{ flex: 1 }} />
 
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '0 10px' }}>
-              <button className="btn btn-sm" onClick={() => store.newTab('grpc')}>
+              <button
+                className="btn btn-sm"
+                onClick={() => store.newTab('grpc')}
+                title="New gRPC call — reflection or .proto files"
+              >
                 + gRPC
               </button>
-              <button className="btn btn-sm" onClick={() => store.newTab('s3')}>
+              <button
+                className="btn btn-sm"
+                onClick={() => store.newTab('s3')}
+                title="Browse an S3 bucket — upload, download, edit metadata"
+              >
                 + S3
               </button>
-              <button className="btn btn-sm" onClick={() => store.newTab('workflow')}>
-                <WorkflowIcon size={12} /> + Workflow
+              <button
+                className="btn btn-sm"
+                onClick={() => store.newTab('workflow')}
+                title="Chain requests together on a canvas"
+              >
+                <WorkflowIcon size={12} /> + {t.workflow.title}
               </button>
               {tab && (
                 <button className="btn btn-sm" onClick={saveActive} title="Save (⌘S)">
-                  <Save size={12} /> Save
+                  <Save size={12} /> {t.common.save}
                 </button>
               )}
             </div>
