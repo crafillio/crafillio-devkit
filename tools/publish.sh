@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 #
 # Publishes this repository to GitHub: creates it if absent, pushes main and
-# the release tag, serves docs/ as the project page, and opens the v1.0.0
-# release.
+# the release tag, then opens the release and attaches the installers.
+#
+# The website is a separate repository (crafillio.github.io) and is not touched
+# here.
 #
 # Every step is idempotent — re-running after a partial failure resumes rather
 # than duplicating. Authentication is deliberately not handled here: run
@@ -75,22 +77,6 @@ ok "main pushed"
 git push origin "refs/tags/$TAG"
 ok "$TAG pushed"
 
-# ── Pages ────────────────────────────────────────────────────────────────────
-step "GitHub Pages"
-
-if gh api "repos/$SLUG/pages" >/dev/null 2>&1; then
-  # Already enabled: correct the source in case it points somewhere else.
-  gh api -X PUT "repos/$SLUG/pages" \
-    -f 'source[branch]=main' -f 'source[path]=/docs' >/dev/null
-  skip "already enabled, source reset to main:/docs"
-else
-  gh api -X POST "repos/$SLUG/pages" \
-    -f 'source[branch]=main' -f 'source[path]=/docs' >/dev/null
-  ok "enabled from main:/docs"
-fi
-
-echo "  Site: https://$OWNER.github.io/$NAME/  (live in a minute or two)"
-
 # ── Release ──────────────────────────────────────────────────────────────────
 step "Release"
 
@@ -111,13 +97,27 @@ fi
 shopt -s nullglob
 ARTIFACTS=(apps/desktop/release/*.dmg apps/desktop/release/*.exe)
 if [ ${#ARTIFACTS[@]} -gt 0 ]; then
-  gh release upload "$TAG" "${ARTIFACTS[@]}" --repo "$SLUG" --clobber
-  ok "uploaded ${#ARTIFACTS[@]} installer(s)"
+  # Checksums let someone verify an unsigned installer is the one published
+  # here. Without a code-signing certificate this is the only integrity check
+  # a downloader gets, so it ships with every release.
+  ( cd apps/desktop/release && shasum -a 256 *.dmg *.exe > SHA256SUMS.txt )
+  ok "checksums written"
+
+  gh release upload "$TAG" "${ARTIFACTS[@]}" apps/desktop/release/SHA256SUMS.txt \
+    --repo "$SLUG" --clobber
+  ok "uploaded ${#ARTIFACTS[@]} installer(s) and checksums"
 else
   skip "no installers found — run 'npm run dist' then re-run to attach them"
 fi
 
+if [ "$(gh repo view "$SLUG" --json isPrivate --jq .isPrivate)" = "true" ]; then
+  printf '\n  \033[33m!\033[0m %s\n' "This repository is private, so the release assets are NOT"
+  printf '    %s\n' "publicly downloadable — the download links on crafillio.github.io"
+  printf '    %s\n' "will 404 for visitors until you switch it to public:"
+  printf '    %s\n' "https://github.com/$SLUG/settings#danger-zone"
+fi
+
 step "Done"
 echo "  Repo:    https://github.com/$SLUG"
-echo "  Site:    https://$OWNER.github.io/$NAME/"
+echo "  Site:    https://$OWNER.github.io/"
 echo "  Release: https://github.com/$SLUG/releases/tag/$TAG"
