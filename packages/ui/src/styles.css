@@ -63,7 +63,7 @@
   --syn-string: #86e29b;
   --syn-number: #f5b73d;
   --syn-atom: #c084fc;
-  --syn-comment: #5b6379;
+  --syn-comment: #7f899f;
 
   /* Elevation. Dark UI leans on light borders more than shadow. */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
@@ -137,7 +137,7 @@
   --syn-string: #0f7b45;
   --syn-number: #b45309;
   --syn-atom: #7c3aed;
-  --syn-comment: #94a0b8;
+  --syn-comment: #6a7288;
 
   /* Light UI needs real shadow to establish depth. */
   --shadow-sm: 0 1px 2px rgba(20, 22, 31, 0.07);

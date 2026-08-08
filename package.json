@@ -25,7 +25,8 @@
     "clean": "rm -rf packages/*/dist apps/*/dist apps/desktop/release packages/*/tsconfig.tsbuildinfo apps/*/tsconfig.tsbuildinfo",
     "licenses": "node tools/license-report.mjs",
     "audit": "npm audit --omit=dev",
-    "verify": "npm run typecheck && npm test && npm run licenses && npm run audit"
+    "verify": "npm run typecheck && npm test && npm run licenses && npm run audit",
+    "style-guide": "node tools/build-style-guide.mjs"
   },
   "devDependencies": {
     "typescript": "^5.7.2"
