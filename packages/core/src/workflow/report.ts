@@ -149,7 +149,7 @@ function canvasDiagram(result: RunResult, workflow: Workflow): string {
             step.name.length > 20 ? `${step.name.slice(0, 20)}…` : step.name,
           )}</text>
           <text x="${p.x + 14}" y="${p.y + 45}" class="node-method">${esc(
-            step.request.method,
+            step.kind === 'grpc' ? 'gRPC' : step.request.method,
           )}</text>
           <text x="${p.x + 14}" y="${p.y + 63}" class="node-sub">${esc(sub)}</text>
         </g>`;
@@ -284,7 +284,15 @@ function stepCard(step: StepRecord): string {
       <span class="idx">${step.index + 1}</span>
       <h3>${esc(step.name)}</h3>
       <span class="badge ${step.status}">${STATUS_LABEL[step.status]}</span>
-      ${step.response ? `<span class="badge http s${Math.floor(step.response.status / 100)}">HTTP ${step.response.status}</span>` : ''}
+      ${
+        step.response
+          ? step.protocol === 'grpc'
+            ? `<span class="badge http ${step.response.ok ? 's2' : 's5'}">gRPC ${esc(
+                step.response.statusLabel ?? String(step.response.status),
+              )}</span>`
+            : `<span class="badge http s${Math.floor(step.response.status / 100)}">HTTP ${step.response.status}</span>`
+          : ''
+      }
       <span class="dur">${formatMs(step.durationMs)}</span>
     </header>
 
@@ -313,7 +321,9 @@ function stepCard(step: StepRecord): string {
       step.response
         ? `<div class="pane">
       <h4>Response received</h4>
-      <p class="line"><strong>${step.response.status}</strong> · ${formatBytes(
+      <p class="line"><strong>${esc(
+        step.response.statusLabel ?? String(step.response.status),
+      )}</strong> · ${formatBytes(
         step.response.size,
       )} · ${formatMs(step.response.timingMs)}</p>
       <h5>Headers</h5>
@@ -532,8 +542,12 @@ footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--border);color
           return `<tr>
             <td class="k">${step.index + 1}</td>
             <td>${esc(step.name)}</td>
-            <td class="v">${esc(step.request?.method ?? '—')}</td>
-            <td class="v">${step.response ? step.response.status : STATUS_LABEL[step.status]}</td>
+            <td class="v">${esc(step.request?.method ?? (step.protocol === 'grpc' ? 'gRPC' : '—'))}</td>
+            <td class="v">${
+              step.response
+                ? esc(step.response.statusLabel ?? String(step.response.status))
+                : STATUS_LABEL[step.status]
+            }</td>
             <td class="v r">${formatMs(step.durationMs)}</td>
             <td class="r"><span class="bar"><i style="width:${Math.min(100, share).toFixed(1)}%"></i></span>${share.toFixed(1)}%</td>
             <td class="v r">${step.response ? formatBytes(step.response.size) : '—'}</td>

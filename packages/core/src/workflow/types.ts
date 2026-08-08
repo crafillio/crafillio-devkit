@@ -1,4 +1,4 @@
-import type { RestRequest, RestResponse } from '../types.js';
+import type { GrpcRequest, RestRequest, RestResponse } from '../types.js';
 
 /**
  * A workflow chains requests together: each step can pull values out of an
@@ -38,12 +38,10 @@ export interface StepOutput {
   path: string;
 }
 
-export interface WorkflowStep {
+/** Everything a step carries regardless of which protocol it speaks. */
+interface WorkflowStepBase {
   id: string;
   name: string;
-  /** Only REST today; the shape leaves room for gRPC and S3 steps. */
-  kind: 'rest';
-  request: RestRequest;
   inputs: StepInput[];
   outputs: StepOutput[];
   /** Keep going when this step fails, rather than stopping the run. */
@@ -53,6 +51,23 @@ export interface WorkflowStep {
   /** Canvas position. Absent for workflows built before the visual editor. */
   position?: { x: number; y: number };
 }
+
+export interface RestStep extends WorkflowStepBase {
+  kind: 'rest';
+  request: RestRequest;
+}
+
+/**
+ * A gRPC step. Unary only: a workflow passes one response to the next step,
+ * which a stream has no single answer for.
+ */
+export interface GrpcStep extends WorkflowStepBase {
+  kind: 'grpc';
+  grpc: GrpcRequest;
+}
+
+/** REST and gRPC steps mix freely in one workflow. */
+export type WorkflowStep = RestStep | GrpcStep;
 
 /** A connection drawn on the canvas: `from` runs before `to`. */
 export interface WorkflowEdge {
@@ -83,6 +98,8 @@ export interface StepRecord {
   stepId: string;
   name: string;
   index: number;
+  /** Which protocol this step spoke, so the UI and report can label it. */
+  protocol: 'rest' | 'grpc';
   status: StepStatus;
   startedAt: string;
   durationMs: number;
@@ -91,14 +108,20 @@ export interface StepRecord {
   resolvedInputs: Array<{ name: string; value: string; source: string; truncated: boolean }>;
   /** The request as sent, with variables already substituted. */
   request?: {
+    /** HTTP verb, or the gRPC call type. */
     method: string;
+    /** URL, or `host service/method` for gRPC. */
     url: string;
+    /** Headers, or gRPC metadata. */
     headers: Array<[string, string]>;
     body?: string;
     bodyKind: string;
   };
   response?: {
+    /** HTTP status, or the gRPC status code (0 is OK). */
     status: number;
+    /** For gRPC, the status name such as OK or PERMISSION_DENIED. */
+    statusLabel?: string;
     ok: boolean;
     headers: Array<[string, string]>;
     body: string;

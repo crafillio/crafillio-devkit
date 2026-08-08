@@ -14,7 +14,8 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { sendRest } from '../protocols/rest.js';
-import type { RestRequest, RestResponse } from '../types.js';
+import { createUnaryInvoker } from '../protocols/grpc.js';
+import type { GrpcRequest, RestRequest, RestResponse } from '../types.js';
 import { getPath, stringifyValue } from './extract.js';
 import type {
   InputSource,
@@ -135,6 +136,7 @@ interface StepState {
 async function resolveInput(
   source: InputSource,
   states: Map<string, StepState>,
+  grpcResults: Map<string, unknown>,
 ): Promise<string | undefined> {
   switch (source.from) {
     case 'literal':
@@ -147,18 +149,36 @@ async function resolveInput(
 
     case 'status': {
       const state = states.get(source.stepId);
-      return state?.response ? String(state.response.status) : undefined;
+      if (state?.response) return String(state.response.status);
+      // A gRPC step that produced a message succeeded, i.e. status OK.
+      return grpcResults.has(source.stepId) ? '0' : undefined;
     }
 
-    case 'rawBody':
-      return states.get(source.stepId)?.response?.body;
+    case 'rawBody': {
+      const state = states.get(source.stepId);
+      if (state?.response) return state.response.body;
+      return grpcResults.has(source.stepId)
+        ? JSON.stringify(grpcResults.get(source.stepId))
+        : undefined;
+    }
 
     case 'header': {
       const headers = states.get(source.stepId)?.response?.headers;
-      return headers?.[source.header.toLowerCase()];
+      if (headers) return headers[source.header.toLowerCase()];
+      // gRPC metadata is not captured per-call today; say so rather than
+      // silently resolving to nothing.
+      if (grpcResults.has(source.stepId)) {
+        throw new Error('Response headers are not available from a gRPC step.');
+      }
+      return undefined;
     }
 
     case 'body': {
+      // gRPC already decoded its message; read straight from it.
+      if (grpcResults.has(source.stepId)) {
+        const value = getPath(grpcResults.get(source.stepId), source.path);
+        return value === undefined ? undefined : stringifyValue(value);
+      }
       const state = states.get(source.stepId);
       if (!state?.response) return undefined;
       // Re-parse lazily so a step whose body is not JSON still reports clearly.
@@ -214,6 +234,19 @@ function snapshotRequest(request: RestRequest): NonNullable<StepRecord['request'
   return { method: request.method, url, headers, body, bodyKind: request.body.kind };
 }
 
+/** Describes a gRPC call using the same fields the report renders for HTTP. */
+function snapshotGrpc(request: GrpcRequest): NonNullable<StepRecord['request']> {
+  return {
+    method: 'gRPC',
+    url: `${request.target.address} ${request.service}/${request.method}`,
+    headers: request.metadata
+      .filter((m) => m.enabled && m.key.trim())
+      .map((m) => [m.key, m.value] as [string, string]),
+    body: request.messages[0] ?? '',
+    bodyKind: 'json',
+  };
+}
+
 function guessContentType(headers: Record<string, string>): string {
   return (headers['content-type'] ?? 'application/octet-stream').split(';')[0]!.trim();
 }
@@ -259,6 +292,8 @@ export function runWorkflow(
     // Environment variables seed the context; step outputs layer on top.
     const context: Record<string, string> = { ...environment };
     const states = new Map<string, StepState>();
+    // gRPC has no RestResponse, so its decoded message is kept alongside.
+    const grpcResults = new Map<string, unknown>();
     const records: StepRecord[] = [];
 
     const sequence = orderSteps(workflow);
@@ -272,10 +307,15 @@ export function runWorkflow(
       onEvent({ type: 'step-start', runId, stepId: step.id, index });
       const stepStarted = process.hrtime.bigint();
 
+      // Bindings read from either source without caring which protocol ran.
+      const readState = (stepId: string): unknown =>
+        grpcResults.has(stepId) ? grpcResults.get(stepId) : undefined;
+
       const record: StepRecord = {
         stepId: step.id,
         name: step.name,
         index,
+        protocol: step.kind,
         status: 'running',
         startedAt: new Date().toISOString(),
         durationMs: 0,
@@ -289,7 +329,7 @@ export function runWorkflow(
         for (const input of step.inputs) {
           let value: string | undefined;
           try {
-            value = await resolveInput(input.source, states);
+            value = await resolveInput(input.source, states, grpcResults);
           } catch (err) {
             if (input.fallback === undefined) throw err;
             value = input.fallback;
@@ -329,52 +369,105 @@ export function runWorkflow(
 
         /* 3. Send. */
         const missing = new Set<string>();
-        const request = interpolate(step.request, context, missing);
-        record.request = snapshotRequest(request);
+        // Whatever the protocol, the JSON body a step publishes from.
+        let json: unknown;
 
-        if (missing.size > 0) {
-          throw new Error(
-            `Unresolved variable${missing.size === 1 ? '' : 's'} in this step: ` +
-              `${[...missing].map((m) => `{{${m}}}`).join(', ')}`,
-          );
-        }
+        if (step.kind === 'grpc') {
+          const request = interpolate(step.grpc, context, missing);
+          record.request = snapshotGrpc(request);
 
-        const response = await sendRest(request);
-        states.set(step.id, { response });
+          if (missing.size > 0) {
+            throw new Error(
+              `Unresolved variable${missing.size === 1 ? '' : 's'} in this step: ` +
+                `${[...missing].map((m) => `{{${m}}}`).join(', ')}`,
+            );
+          }
 
-        const contentType = guessContentType(response.headers);
-        const inlineBody =
-          response.body.length > INLINE_BODY_LIMIT
-            ? `${response.body.slice(0, INLINE_BODY_LIMIT)}…`
-            : response.body;
+          const callStarted = process.hrtime.bigint();
+          // One channel per step: a workflow step is a single call, so pooling
+          // across steps would keep connections open to servers no longer used.
+          const invoker = await createUnaryInvoker(request);
+          try {
+            const result = await invoker.invoke();
+            json = result.message ?? {};
+            const body = JSON.stringify(json, null, 2);
+            record.response = {
+              status: 0,
+              statusLabel: result.statusName,
+              ok: true,
+              headers: [],
+              body,
+              bodyEncoding: 'utf8',
+              size: Buffer.byteLength(body),
+              timingMs: Number(process.hrtime.bigint() - callStarted) / 1e6,
+            };
+          } catch (err) {
+            const failure = err as Error & { statusName?: string; statusCode?: number };
+            record.response = {
+              status: failure.statusCode ?? 2,
+              statusLabel: failure.statusName ?? 'UNKNOWN',
+              ok: false,
+              headers: [],
+              body: failure.message,
+              bodyEncoding: 'utf8',
+              size: Buffer.byteLength(failure.message),
+              timingMs: Number(process.hrtime.bigint() - callStarted) / 1e6,
+            };
+            throw new Error(`gRPC call failed: ${failure.statusName ?? ''} ${failure.message}`.trim());
+          } finally {
+            invoker.close();
+          }
 
-        record.response = {
-          status: response.status,
-          ok: response.ok,
-          headers: Object.entries(response.headers),
-          body: inlineBody,
-          bodyEncoding: response.bodyEncoding,
-          size: response.size,
-          timingMs: response.timing.totalMs,
-        };
+          grpcResults.set(step.id, json);
+        } else {
+          const request = interpolate(step.request, context, missing);
+          record.request = snapshotRequest(request);
 
-        // A binary response is a file the user will want out of the report.
-        if (response.bodyEncoding === 'base64') {
-          record.artifacts.push({
-            name: `${step.name.replace(/[^\w.-]+/g, '-').toLowerCase()}.${extensionFor(contentType)}`,
-            contentType,
-            base64: response.body,
+          if (missing.size > 0) {
+            throw new Error(
+              `Unresolved variable${missing.size === 1 ? '' : 's'} in this step: ` +
+                `${[...missing].map((m) => `{{${m}}}`).join(', ')}`,
+            );
+          }
+
+          const response = await sendRest(request);
+          states.set(step.id, { response });
+
+          const contentType = guessContentType(response.headers);
+          const inlineBody =
+            response.body.length > INLINE_BODY_LIMIT
+              ? `${response.body.slice(0, INLINE_BODY_LIMIT)}…`
+              : response.body;
+
+          record.response = {
+            status: response.status,
+            ok: response.ok,
+            headers: Object.entries(response.headers),
+            body: inlineBody,
+            bodyEncoding: response.bodyEncoding,
             size: response.size,
-          });
-        }
+            timingMs: response.timing.totalMs,
+          };
 
-        if (!response.ok) {
-          throw new Error(`Request failed with HTTP ${response.status}.`);
+          // A binary response is a file the user will want out of the report.
+          if (response.bodyEncoding === 'base64') {
+            record.artifacts.push({
+              name: `${step.name.replace(/[^\w.-]+/g, '-').toLowerCase()}.${extensionFor(contentType)}`,
+              contentType,
+              base64: response.body,
+              size: response.size,
+            });
+          }
+
+          if (!response.ok) {
+            throw new Error(`Request failed with HTTP ${response.status}.`);
+          }
+
+          json = parseJson(response);
+          states.set(step.id, { response, json });
         }
 
         /* 4. Publish outputs. */
-        const json = parseJson(response);
-        states.set(step.id, { response, json });
 
         for (const output of step.outputs) {
           const raw = output.path.trim() === '' ? json : getPath(json, output.path);
@@ -437,6 +530,7 @@ function skipped(step: WorkflowStep, index: number, reason: string): StepRecord 
     stepId: step.id,
     name: step.name,
     index,
+    protocol: step.kind,
     status: 'skipped',
     startedAt: new Date().toISOString(),
     durationMs: 0,

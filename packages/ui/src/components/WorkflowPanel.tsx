@@ -8,6 +8,7 @@ import {
   FileDown,
   Loader2,
   Play,
+  RefreshCw,
   Plus,
   Square,
   Trash2,
@@ -15,6 +16,9 @@ import {
 } from 'lucide-react';
 import { orderSteps } from '../lib/graph';
 import type {
+  GrpcRequest,
+  GrpcServiceDescriptor,
+  RestRequest,
   InputSource,
   RunResult,
   StepRecord,
@@ -28,9 +32,9 @@ import { BodyEditor } from './BodyEditor';
 import { KeyValueTable } from './KeyValueTable';
 import { WorkflowCanvas } from './WorkflowCanvas';
 import { formatBytes, formatMs, tryPrettyJson } from '../lib/format';
-import { blankRest, uid } from '../lib/defaults';
+import { blankGrpc, blankRest, uid } from '../lib/defaults';
 import { useStore } from '../state/store';
-import { askConfirm, askName } from '../state/dialogs';
+import { askChoice, askConfirm, askName } from '../state/dialogs';
 import { useT } from '../i18n';
 
 /**
@@ -143,7 +147,13 @@ export function WorkflowPanel() {
 
   const patchStep = (stepId: string, next: Partial<WorkflowStep>): void => {
     if (!current) return;
-    patch({ steps: current.steps.map((s) => (s.id === stepId ? { ...s, ...next } : s)) });
+    patch({
+      steps: current.steps.map((s) =>
+        // The cast keeps the discriminated union intact: callers only ever
+        // patch fields belonging to the step's own kind.
+        s.id === stepId ? ({ ...s, ...next } as WorkflowStep) : s,
+      ),
+    });
   };
 
   const save = async (): Promise<void> => {
@@ -169,17 +179,32 @@ export function WorkflowPanel() {
     setDirty(false);
   };
 
-  const addStep = (): void => {
+  const addStep = async (): Promise<void> => {
     if (!current) return;
-    const step: WorkflowStep = {
+
+    const kind = await askChoice({
+      title: t.workflow.addStep,
+      label: 'Protocol',
+      confirmLabel: t.common.add,
+      options: [
+        { value: 'rest', label: 'REST', hint: 'HTTP request' },
+        { value: 'grpc', label: 'gRPC', hint: 'unary call' },
+      ],
+    });
+    if (!kind) return;
+
+    const base = {
       id: uid('step'),
       name: `Step ${current.steps.length + 1}`,
-      kind: 'rest',
-      request: blankRest(),
       inputs: [],
       outputs: [],
       continueOnError: false,
     };
+    const step: WorkflowStep =
+      kind === 'grpc'
+        ? { ...base, kind: 'grpc', grpc: blankGrpc() }
+        : { ...base, kind: 'rest', request: blankRest() };
+
     patch({ steps: [...current.steps, step] });
     setSelectedStepId(step.id);
   };
@@ -267,7 +292,7 @@ export function WorkflowPanel() {
         <button className="btn btn-sm" onClick={save} disabled={!dirty}>
           Save{dirty ? ' •' : ''}
         </button>
-        <button className="btn btn-sm" onClick={addStep}>
+        <button className="btn btn-sm" onClick={() => void addStep()} title="Add a REST or gRPC step">
           <Plus size={12} /> {t.workflow.addStep}
         </button>
 
@@ -441,6 +466,7 @@ function StepEditor({
 }) {
   const [tab, setTab] = useState<'headers' | 'body' | 'inputs' | 'outputs'>('headers');
   const urlRef = useRef<HTMLInputElement>(null);
+  const grpcTab = step.kind === 'grpc';
   // Only earlier steps can be referenced — a later one has not run yet.
   const earlier = allSteps.slice(0, allSteps.findIndex((s) => s.id === step.id));
 
@@ -461,6 +487,12 @@ function StepEditor({
   /** Inserts {{name}} into the URL at the caret, not just at the end. */
   const insertVariable = (name: string): void => {
     const token = `{{${name}}}`;
+    if (step.kind !== 'rest') {
+      // gRPC has no URL bar; put it on the clipboard so it can go wherever
+      // the user actually needs it.
+      void navigator.clipboard.writeText(token);
+      return;
+    }
     const input = urlRef.current;
     if (!input) {
       setRequest({ url: step.request.url + token });
@@ -477,8 +509,15 @@ function StepEditor({
     });
   };
 
-  const setRequest = (next: Partial<WorkflowStep['request']>): void =>
-    onChange({ request: { ...step.request, ...next } });
+  const setRequest = (next: Partial<RestRequest>): void => {
+    if (step.kind !== 'rest') return;
+    onChange({ request: { ...step.request, ...next } } as Partial<WorkflowStep>);
+  };
+
+  const setGrpc = (next: Partial<GrpcRequest>): void => {
+    if (step.kind !== 'grpc') return;
+    onChange({ grpc: { ...step.grpc, ...next } } as Partial<WorkflowStep>);
+  };
 
   return (
     <div className="pane">
@@ -503,27 +542,32 @@ function StepEditor({
         </button>
       </div>
 
-      <div className="reqbar">
-        <select
-          className="select method-select"
-          value={step.request.method}
-          onChange={(e) => setRequest({ method: e.target.value as typeof step.request.method })}
-        >
-          {(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const).map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
-        <input
-          ref={urlRef}
-          className="input url"
-          value={step.request.url}
-          placeholder="https://api.example.com/orders/{{orderId}}"
-          spellCheck={false}
-          onChange={(e) => setRequest({ url: e.target.value })}
-        />
-      </div>
+      {step.kind === 'rest' ? (
+        <div className="reqbar">
+          <select
+            className="select method-select"
+            value={step.request.method}
+            title="HTTP method"
+            onChange={(e) => setRequest({ method: e.target.value as RestRequest['method'] })}
+          >
+            {(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const).map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+          <input
+            ref={urlRef}
+            className="input url"
+            value={step.request.url}
+            placeholder="https://api.example.com/orders/{{orderId}}"
+            spellCheck={false}
+            onChange={(e) => setRequest({ url: e.target.value })}
+          />
+        </div>
+      ) : (
+        <GrpcStepBar step={step} setGrpc={setGrpc} />
+      )}
 
       {available.length > 0 && (
         <div className="wf-vars">
@@ -547,10 +591,14 @@ function StepEditor({
           className={`subtab ${tab === 'headers' ? 'active' : ''}`}
           onClick={() => setTab('headers')}
         >
-          Headers
-          {step.request.headers.filter((h) => h.enabled && h.key.trim()).length ? (
+          {grpcTab ? 'Metadata' : 'Headers'}
+          {(grpcTab ? step.grpc.metadata : step.request.headers).filter(
+            (h) => h.enabled && h.key.trim(),
+          ).length ? (
             <span className="count">
-              {step.request.headers.filter((h) => h.enabled && h.key.trim()).length}
+              {(grpcTab ? step.grpc.metadata : step.request.headers).filter(
+                (h) => h.enabled && h.key.trim(),
+              ).length}
             </span>
           ) : null}
         </button>
@@ -558,8 +606,10 @@ function StepEditor({
           className={`subtab ${tab === 'body' ? 'active' : ''}`}
           onClick={() => setTab('body')}
         >
-          Body
-          {step.request.body.kind !== 'none' ? <span className="count">•</span> : null}
+          {grpcTab ? 'Message' : 'Body'}
+          {(grpcTab ? true : step.request.body.kind !== 'none') ? (
+            <span className="count">•</span>
+          ) : null}
         </button>
         <button
           className={`subtab ${tab === 'inputs' ? 'active' : ''}`}
@@ -579,21 +629,36 @@ function StepEditor({
         {tab === 'headers' && (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <div className="wf-hint">
-              Reference any input or earlier output as <code>{'{{name}}'}</code> — in the URL,
-              a header, or the body.
+              Reference any input or earlier output as <code>{'{{name}}'}</code> — in the
+              {grpcTab ? ' address, message or metadata.' : ' URL, a header, or the body.'}
             </div>
-            <KeyValueTable
-              rows={step.request.headers}
-              onChange={(headers) => setRequest({ headers })}
-              keyPlaceholder="Header"
-              autocomplete="headers"
-            />
+            {step.kind === 'grpc' ? (
+              <KeyValueTable
+                rows={step.grpc.metadata}
+                onChange={(metadata) => setGrpc({ metadata })}
+                keyPlaceholder="metadata-key"
+              />
+            ) : (
+              <KeyValueTable
+                rows={step.request.headers}
+                onChange={(headers) => setRequest({ headers })}
+                keyPlaceholder="Header"
+                autocomplete="headers"
+              />
+            )}
           </div>
         )}
 
-        {tab === 'body' && (
-          <BodyEditor body={step.request.body} onChange={(body) => setRequest({ body })} />
-        )}
+        {tab === 'body' &&
+          (step.kind === 'grpc' ? (
+            <CodeEditor
+              value={step.grpc.messages[0] ?? '{}'}
+              language="json"
+              onChange={(text) => setGrpc({ messages: [text] })}
+            />
+          ) : (
+            <BodyEditor body={step.request.body} onChange={(body) => setRequest({ body })} />
+          ))}
 
         {tab === 'inputs' && (
           <InputsEditor step={step} earlier={earlier} onChange={onChange} record={record} />
@@ -602,6 +667,171 @@ function StepEditor({
         {tab === 'outputs' && <OutputsEditor step={step} onChange={onChange} record={record} />}
       </div>
     </div>
+  );
+}
+
+/**
+ * Target bar for a gRPC step: where to call, and which method.
+ *
+ * Discovery reuses the same reflection/proto path as the gRPC tab, so a step
+ * can be pointed at a server and its methods listed without leaving the canvas.
+ */
+function GrpcStepBar({
+  step,
+  setGrpc,
+}: {
+  step: Extract<WorkflowStep, { kind: 'grpc' }>;
+  setGrpc: (next: Partial<GrpcRequest>) => void;
+}) {
+  const toast = useStore((s) => s.toast);
+  const [services, setServices] = useState<GrpcServiceDescriptor[]>([]);
+  const [discovering, setDiscovering] = useState(false);
+
+  const discover = async (): Promise<void> => {
+    if (!step.grpc.target.address.trim()) {
+      toast('error', 'Enter a server address first.');
+      return;
+    }
+    setDiscovering(true);
+    try {
+      const found = await window.crafillio.grpc.describe(step.grpc.source, step.grpc.target, true);
+      setServices(found);
+      const first = found[0];
+      // Only unary methods can be a workflow step; a stream has no single
+      // response to hand to the next one.
+      const unary = first?.methods.filter((m) => m.callType === 'unary') ?? [];
+      if (first && !step.grpc.service && unary[0]) {
+        setGrpc({ service: first.name, method: unary[0].name, messages: [unary[0].inputExample] });
+      }
+      toast('success', `Found ${found.length} service${found.length === 1 ? '' : 's'}`);
+    } catch (err) {
+      toast('error', (err as Error).message);
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
+  const service = services.find((s) => s.name === step.grpc.service);
+  const unaryMethods = service?.methods.filter((m) => m.callType === 'unary') ?? [];
+
+  return (
+    <>
+      <div className="grpc-toolbar">
+        <input
+          className="input input-mono"
+          style={{ flex: 1, minWidth: 180 }}
+          value={step.grpc.target.address}
+          placeholder="localhost:50051"
+          spellCheck={false}
+          title="gRPC server address"
+          onChange={(e) => setGrpc({ target: { ...step.grpc.target, address: e.target.value } })}
+        />
+        <label className="inline-check" title="Connect over TLS">
+          <input
+            type="checkbox"
+            className="checkbox"
+            checked={step.grpc.target.tls}
+            onChange={(e) => setGrpc({ target: { ...step.grpc.target, tls: e.target.checked } })}
+          />
+          TLS
+        </label>
+        <select
+          className="select"
+          value={step.grpc.source.kind}
+          title="Where the service definition comes from"
+          onChange={(e) =>
+            setGrpc({
+              source:
+                e.target.value === 'reflection'
+                  ? { kind: 'reflection' }
+                  : { kind: 'proto', files: [], includeDirs: [] },
+            })
+          }
+        >
+          <option value="reflection">Server reflection</option>
+          <option value="proto">.proto files</option>
+        </select>
+        {step.grpc.source.kind === 'proto' && (
+          <button
+            className="btn btn-sm"
+            title="Choose .proto files"
+            onClick={async () => {
+              const files = await window.crafillio.dialog.openFiles({
+                filters: [{ name: 'Protocol buffers', extensions: ['proto'] }],
+                multiple: true,
+              });
+              if (files.length === 0) return;
+              const includeDirs = [...new Set(files.map((f) => f.path.replace(/\/[^/]+$/, '')))];
+              setGrpc({ source: { kind: 'proto', files: files.map((f) => f.path), includeDirs } });
+            }}
+          >
+            {step.grpc.source.files.length
+              ? `${step.grpc.source.files.length} file(s)`
+              : 'Choose .proto'}
+          </button>
+        )}
+        <button className="btn btn-sm" onClick={discover} disabled={discovering} title="List the services this server exposes">
+          {discovering ? <Loader2 size={13} className="spin" /> : <RefreshCw size={13} />}
+          Discover
+        </button>
+      </div>
+
+      <div className="grpc-toolbar" style={{ paddingTop: 0 }}>
+        <select
+          className="select"
+          style={{ flex: 1, minWidth: 150 }}
+          value={step.grpc.service}
+          title="Service"
+          onChange={(e) => setGrpc({ service: e.target.value, method: '' })}
+        >
+          <option value="">{services.length ? 'Select a service…' : 'Run Discover, or type below'}</option>
+          {services.map((s) => (
+            <option key={s.name} value={s.name}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+
+        {unaryMethods.length > 0 ? (
+          <select
+            className="select"
+            style={{ flex: 1, minWidth: 150 }}
+            value={step.grpc.method}
+            title="Unary method"
+            onChange={(e) => {
+              const chosen = unaryMethods.find((m) => m.name === e.target.value);
+              setGrpc({
+                method: e.target.value,
+                messages: chosen ? [chosen.inputExample] : step.grpc.messages,
+              });
+            }}
+          >
+            <option value="">Select a method…</option>
+            {unaryMethods.map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            className="input input-mono"
+            style={{ flex: 1, minWidth: 150 }}
+            value={step.grpc.method}
+            placeholder="MethodName"
+            title="Unary method name"
+            onChange={(e) => setGrpc({ method: e.target.value })}
+          />
+        )}
+      </div>
+
+      {!step.grpc.service && (
+        <div className="wf-hint">
+          Workflow steps call unary methods only — a streaming call has no single response to hand
+          to the next step.
+        </div>
+      )}
+    </>
   );
 }
 

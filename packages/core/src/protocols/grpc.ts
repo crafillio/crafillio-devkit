@@ -100,7 +100,7 @@ function flattenMetadata(md: grpc.Metadata | undefined): Record<string, string> 
  * behaves.
  */
 export async function createUnaryInvoker(req: GrpcRequest): Promise<{
-  invoke(): Promise<{ statusName: string }>;
+  invoke(): Promise<{ statusName: string; message: Record<string, unknown> | null }>;
   close(): void;
 }> {
   const target: GrpcTarget = { ...req.target, address: normalizeAddress(req.target.address) };
@@ -135,15 +135,22 @@ export async function createUnaryInvoker(req: GrpcRequest): Promise<{
           payload,
           metadata,
           options,
-          (err) => {
+          (err, value) => {
             if (err) {
               const svc = err as grpc.ServiceError;
-              const error = new Error(svc.details || svc.message) as Error & { statusName?: string };
+              const error = new Error(svc.details || svc.message) as Error & {
+                statusName?: string;
+                statusCode?: number;
+              };
               error.statusName = statusName(svc.code ?? grpc.status.UNKNOWN);
+              error.statusCode = svc.code ?? grpc.status.UNKNOWN;
               reject(error);
               return;
             }
-            resolve({ statusName: 'OK' });
+            resolve({
+              statusName: 'OK',
+              message: (value as Record<string, unknown>) ?? null,
+            });
           },
         );
       }),

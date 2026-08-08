@@ -13,7 +13,7 @@ import type { Messages } from './locales/en';
  * cost every user the weight of languages they will never read.
  */
 
-export type LocaleCode = 'en' | 'de' | 'fr' | 'es' | 'ja';
+export type LocaleCode = 'en' | 'de' | 'fr' | 'es';
 
 export interface LocaleMeta {
   code: LocaleCode;
@@ -27,7 +27,6 @@ export const LOCALES: LocaleMeta[] = [
   { code: 'de', label: 'Deutsch', english: 'German' },
   { code: 'fr', label: 'Français', english: 'French' },
   { code: 'es', label: 'Español', english: 'Spanish' },
-  { code: 'ja', label: '日本語', english: 'Japanese' },
 ];
 
 /** A partial translation: anything missing falls back to English. */
@@ -37,7 +36,6 @@ const loaders: Record<Exclude<LocaleCode, 'en'>, () => Promise<{ messages: Parti
   de: () => import('./locales/de'),
   fr: () => import('./locales/fr'),
   es: () => import('./locales/es'),
-  ja: () => import('./locales/ja'),
 };
 
 interface I18nState {

@@ -136,11 +136,12 @@ npm test
 
 ```
 REST:        19 passed     Workflow:   53 passed
-gRPC:        31 passed     Network:    21 passed
-S3:          24 passed     Importers:  44 passed
-Store/vars:  14 passed     Perf:       29 passed
-Keyfile:     11 passed     Interop:    37 passed
-                                      283 total
+gRPC:        31 passed     Mixed flow: 19 passed
+S3:          24 passed     Network:    21 passed
+Store/vars:  14 passed     Importers:  44 passed
+Keyfile:     11 passed     Perf:       29 passed
+Interop:     37 passed
+                                      302 total
 ```
 
 ## Architecture
@@ -173,7 +174,7 @@ npm workspace hoisting that electron-builder handles poorly.
 
 ## Languages
 
-English by default, with German, French, Spanish and Japanese available from the title bar.
+English by default, with German, French and Spanish available from the title bar.
 Translation is partial: the interface chrome — navigation, buttons, tabs, the network and about
 screens — is translated, and anything not yet covered falls back to English by design rather than
 showing a blank. Adding a language means one file under `packages/ui/src/i18n/locales`; English is

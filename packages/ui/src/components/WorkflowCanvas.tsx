@@ -312,9 +312,27 @@ export function WorkflowCanvas({
                 </button>
               </div>
 
-              <div className="wf-node-url" title={step.request.url}>
-                <span className={`method-chip m-${step.request.method}`}>{step.request.method}</span>
-                {step.request.url || 'no URL yet'}
+              <div
+                className="wf-node-url"
+                title={
+                  step.kind === 'grpc'
+                    ? `${step.grpc.target.address} ${step.grpc.service}/${step.grpc.method}`
+                    : step.request.url
+                }
+              >
+                {step.kind === 'grpc' ? (
+                  <>
+                    <span className="method-chip m-GRPC">GRPC</span>
+                    {step.grpc.method ? `${step.grpc.service}/${step.grpc.method}` : 'no method yet'}
+                  </>
+                ) : (
+                  <>
+                    <span className={`method-chip m-${step.request.method}`}>
+                      {step.request.method}
+                    </span>
+                    {step.request.url || 'no URL yet'}
+                  </>
+                )}
               </div>
 
               <div className="wf-node-foot">

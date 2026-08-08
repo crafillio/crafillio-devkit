@@ -674,12 +674,20 @@ function Workflows() {
                       style={{ paddingLeft: 22 }}
                       onClick={() => openWorkflow(workflow.id)}
                     >
-                      <span className={`method-chip m-${step.request.method}`}>
-                        {step.request.method}
+                      <span
+                        className={`method-chip m-${
+                          step.kind === 'grpc' ? 'GRPC' : step.request.method
+                        }`}
+                      >
+                        {step.kind === 'grpc' ? 'GRPC' : step.request.method}
                       </span>
                       <span className="row-label">
                         {index + 1}. {step.name}
-                        <div className="row-sub">{step.request.url || 'no URL yet'}</div>
+                        <div className="row-sub">
+                          {step.kind === 'grpc'
+                            ? `${step.grpc.service || '?'}/${step.grpc.method || '?'}`
+                            : step.request.url || 'no URL yet'}
+                        </div>
                       </span>
                     </div>
                   ))
