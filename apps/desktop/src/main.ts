@@ -25,6 +25,9 @@ import {
   importCurl,
   exportCurl,
   importPostmanCollection,
+  workflows,
+  runWorkflow,
+  renderReport,
   type LoadProfile,
   type LoadReport,
   type LoadTarget,
@@ -51,7 +54,7 @@ let mainWindow: BrowserWindow | null = null;
 /* ------------------------------------------------------------------ */
 
 /** Must track `--bg` in styles.css, or launch flashes the wrong colour. */
-const WINDOW_BACKGROUND = { dark: '#0a0b10', light: '#f6f6f9' } as const;
+const WINDOW_BACKGROUND = { dark: '#0d0e12', light: '#f2f3f6' } as const;
 
 /**
  * Picks the window chrome colour before the renderer paints. Reading the saved
@@ -164,6 +167,9 @@ const activeCalls = new Map<string, GrpcCall>();
 
 /** In-flight load tests, so a run can be stopped from the UI. */
 const activeRuns = new Map<string, { stop(): void }>();
+
+/** In-flight workflow runs, so a run can be cancelled mid-flight. */
+const activeWorkflowRuns = new Map<string, { cancel(): void }>();
 
 /**
  * Wraps a handler so thrown errors reach the renderer as a plain message.
@@ -368,6 +374,49 @@ function registerHandlers(): void {
     return result.filePath;
   });
 
+  /* Workflows */
+  handle('workflow:list', workflows.listWorkflows);
+  handle('workflow:create', workflows.createWorkflow);
+  handle('workflow:save', workflows.saveWorkflow);
+  handle('workflow:remove', workflows.deleteWorkflow);
+
+  handle('workflow:run', async (workflow: Parameters<typeof runWorkflow>[0]) => {
+    const push = (event: unknown): void => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('workflow:event', event);
+    };
+    // Environment variables seed the workflow context, exactly as they do for
+    // a single request.
+    const env = await environments.activeVariables();
+    const run = runWorkflow(workflow, env, push);
+    activeWorkflowRuns.set(run.runId, run);
+    void run.done.finally(() => activeWorkflowRuns.delete(run.runId));
+    return run.runId;
+  });
+
+  handle('workflow:cancel', (runId: string) => {
+    activeWorkflowRuns.get(runId)?.cancel();
+  });
+
+  handle('workflow:exportReport', async (result: Parameters<typeof renderReport>[0]) => {
+    const stamp = new Date(result.startedAt).toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const slug = result.workflowName.replace(/[^\w.-]+/g, '-').toLowerCase();
+    const dialogResult = await dialog.showSaveDialog({
+      defaultPath: `${slug}-${stamp}.html`,
+      filters: [{ name: 'HTML report', extensions: ['html'] }],
+    });
+    if (dialogResult.canceled || !dialogResult.filePath) return null;
+    await writeFile(dialogResult.filePath, renderReport(result), 'utf8');
+    return dialogResult.filePath;
+  });
+
+  handle('workflow:openReport', async (result: Parameters<typeof renderReport>[0]) => {
+    // Written beside the app's data so the browser can open it from disk.
+    const path = join(CRAFILLIO_HOME, `report-${result.runId.slice(0, 8)}.html`);
+    await writeFile(path, renderReport(result), 'utf8');
+    await shell.openPath(path);
+    return path;
+  });
+
   /* Interop */
   handle('interop:importCurl', (command: string) => importCurl(command));
   handle('interop:exportCurl', (request: Parameters<typeof exportCurl>[0]) => exportCurl(request));
@@ -542,6 +591,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('before-quit', () => {
     for (const call of activeCalls.values()) call.cancel();
     for (const run of activeRuns.values()) run.stop();
+    for (const run of activeWorkflowRuns.values()) run.cancel();
     void closeRestAgents();
   });
 }

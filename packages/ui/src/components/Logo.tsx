@@ -28,9 +28,9 @@ export function Logo({ size = 28, animated = false, title = 'Crafillio DevKit' }
     >
       <defs>
         <linearGradient id="ck-tile" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#4d9fff" />
-          <stop offset="52%" stopColor="#a78bfa" />
-          <stop offset="100%" stopColor="#34d399" />
+          <stop offset="0%" stopColor="#e4007f" />
+          <stop offset="55%" stopColor="#b5008f" />
+          <stop offset="100%" stopColor="#6a3fd6" />
         </linearGradient>
         <linearGradient id="ck-shine" x1="0" y1="0" x2="0" y2="48" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#ffffff" stopOpacity="0.35" />
@@ -45,7 +45,7 @@ export function Logo({ size = 28, animated = false, title = 'Crafillio DevKit' }
       {/* Prompt chevron */}
       <path
         d="M13 17.5 L20.5 24 L13 30.5"
-        stroke="#0b1220"
+        stroke="#ffffff"
         strokeWidth="3.6"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -53,7 +53,7 @@ export function Logo({ size = 28, animated = false, title = 'Crafillio DevKit' }
       />
 
       {/* Cursor bar */}
-      <rect x="24.5" y="27.6" width="12" height="3.4" rx="1.7" fill="#0b1220" opacity="0.92">
+      <rect x="24.5" y="27.6" width="12" height="3.4" rx="1.7" fill="#ffffff" opacity="0.92">
         {animated && (
           <animate
             attributeName="opacity"
@@ -65,7 +65,7 @@ export function Logo({ size = 28, animated = false, title = 'Crafillio DevKit' }
       </rect>
 
       {/* Caret dot — the "semicolon" flourish */}
-      <circle cx="30.6" cy="18.4" r="2.5" fill="#0b1220" opacity="0.92" />
+      <circle cx="30.6" cy="18.4" r="2.5" fill="#ffffff" opacity="0.92" />
     </svg>
   );
 }

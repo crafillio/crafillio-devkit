@@ -477,12 +477,12 @@ footer a:hover{text-decoration:underline}
     <div class="brand">
       <svg width="26" height="26" viewBox="0 0 48 48" fill="none" aria-hidden="true">
         <defs><linearGradient id="t" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stop-color="#4d9fff"/><stop offset="52%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#34d399"/>
+          <stop offset="0%" stop-color="#e4007f"/><stop offset="55%" stop-color="#b5008f"/><stop offset="100%" stop-color="#6a3fd6"/>
         </linearGradient></defs>
         <rect width="48" height="48" rx="12" fill="url(#t)"/>
-        <path d="M13 17.5 L20.5 24 L13 30.5" stroke="#0b1220" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>
-        <rect x="24.5" y="27.6" width="12" height="3.4" rx="1.7" fill="#0b1220" opacity=".92"/>
-        <circle cx="30.6" cy="18.4" r="2.5" fill="#0b1220" opacity=".92"/>
+        <path d="M13 17.5 L20.5 24 L13 30.5" stroke="#ffffff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>
+        <rect x="24.5" y="27.6" width="12" height="3.4" rx="1.7" fill="#ffffff" opacity=".92"/>
+        <circle cx="30.6" cy="18.4" r="2.5" fill="#ffffff" opacity=".92"/>
       </svg>
       Crafillio <span class="brand-accent">DevKit</span>
     </div>

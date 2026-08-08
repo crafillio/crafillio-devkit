@@ -42,6 +42,23 @@ export type {
   TimeBucket,
 } from './perf/types.js';
 
+export * as workflows from './store/workflows.js';
+export { runWorkflow, orderSteps, type WorkflowRun } from './workflow/engine.js';
+export { renderReport } from './workflow/report.js';
+export { getPath, suggestPaths, stringifyValue } from './workflow/extract.js';
+export type {
+  Workflow,
+  WorkflowStep,
+  WorkflowEdge,
+  WorkflowEvent,
+  StepInput,
+  StepOutput,
+  StepRecord,
+  StepStatus,
+  InputSource,
+  RunResult,
+} from './workflow/types.js';
+
 export { importCurl, exportCurl } from './interop/curl.js';
 export { importPostmanCollection } from './interop/postman.js';
 export type { PostmanImportResult } from './interop/postman.js';

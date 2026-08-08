@@ -102,6 +102,18 @@ const api: CrafillioApi = {
     exportReport: call('perf:exportReport'),
   },
 
+  workflow: {
+    list: call('workflow:list'),
+    create: call('workflow:create'),
+    save: call('workflow:save'),
+    remove: call('workflow:remove'),
+    run: call('workflow:run'),
+    cancel: call('workflow:cancel'),
+    onEvent: (listener) => subscribe('workflow:event', listener as never),
+    exportReport: call('workflow:exportReport'),
+    openReport: call('workflow:openReport'),
+  },
+
   interop: {
     importCurl: call('interop:importCurl'),
     exportCurl: call('interop:exportCurl'),

@@ -11,6 +11,7 @@ export const CRAFILLIO_HOME = process.env.CRAFILLIO_HOME || join(homedir(), '.cr
 export const PATHS = {
   home: CRAFILLIO_HOME,
   collections: join(CRAFILLIO_HOME, 'collections'),
+  workflows: join(CRAFILLIO_HOME, 'workflows'),
   environments: join(CRAFILLIO_HOME, 'environments.json'),
   connections: join(CRAFILLIO_HOME, 'connections.json'),
   history: join(CRAFILLIO_HOME, 'history.json'),
@@ -21,6 +22,7 @@ export const PATHS = {
 
 export async function ensureHome(): Promise<void> {
   await mkdir(PATHS.collections, { recursive: true });
+  await mkdir(PATHS.workflows, { recursive: true });
 }
 
 /** Reads JSON, returning `fallback` when the file is missing or unparseable. */

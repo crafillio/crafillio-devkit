@@ -55,7 +55,11 @@ export interface S3Tab extends TabCommon {
   selectedKey?: string;
 }
 
-export type Tab = RestTab | GrpcTab | S3Tab;
+export interface WorkflowTab extends TabCommon {
+  protocol: 'workflow';
+}
+
+export type Tab = RestTab | GrpcTab | S3Tab | WorkflowTab;
 
 export interface Toast {
   id: string;
@@ -78,7 +82,7 @@ interface State {
   toasts: Toast[];
 
   /* Tabs */
-  newTab(protocol: Protocol): void;
+  newTab(protocol: TabKind): void;
   openSaved(collection: Collection, request: SavedRequest): void;
   closeTab(id: string): void;
   setActiveTab(id: string): void;
@@ -96,11 +100,17 @@ interface State {
   dismissToast(id: string): void;
 }
 
-function defaultName(protocol: Protocol): string {
-  return protocol === 'rest' ? 'New request' : protocol === 'grpc' ? 'New gRPC call' : 'S3 browser';
+/** Workflow is a UI surface rather than a wire protocol, hence the union. */
+export type TabKind = Protocol | 'workflow';
+
+function defaultName(protocol: TabKind): string {
+  if (protocol === 'rest') return 'New request';
+  if (protocol === 'grpc') return 'New gRPC call';
+  if (protocol === 's3') return 'S3 browser';
+  return 'Workflows';
 }
 
-function makeTab(protocol: Protocol, connectionId = ''): Tab {
+function makeTab(protocol: TabKind, connectionId = ''): Tab {
   const common = { id: uid('tab'), name: defaultName(protocol), dirty: false };
 
   if (protocol === 'rest') {
@@ -117,6 +127,7 @@ function makeTab(protocol: Protocol, connectionId = ''): Tab {
       discovering: false,
     };
   }
+  if (protocol === 'workflow') return { ...common, protocol: 'workflow' };
   return { ...common, protocol: 's3', connectionId, bucket: '', prefix: '' };
 }
 

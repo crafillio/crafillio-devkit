@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Info, Layers, Plus, Save, Terminal, X } from 'lucide-react';
+import { Info, Layers, Plus, Save, Terminal, Workflow as WorkflowIcon, X } from 'lucide-react';
 import type { GrpcEvent, SavedRequest } from '@crafillio/core';
 import { Sidebar } from './components/Sidebar';
 import { RestPanel } from './components/RestPanel';
 import { GrpcPanel } from './components/GrpcPanel';
 import { S3Panel } from './components/S3Panel';
+import { WorkflowPanel } from './components/WorkflowPanel';
 import { ConnectionModal } from './components/ConnectionModal';
 import { EnvironmentsModal } from './components/EnvironmentsModal';
 import { AboutModal } from './components/AboutModal';
@@ -171,6 +172,8 @@ export function App() {
     const current = useStore.getState();
     const active = current.tabs.find((t) => t.id === current.activeTabId);
     if (!active) return;
+    // Workflows own their own persistence (Save in the workflow toolbar).
+    if (active.protocol === 'workflow') return;
 
     let collectionId = active.savedTo?.collectionId;
 
@@ -343,7 +346,7 @@ export function App() {
                   }`}
                   style={{ minWidth: 'auto' }}
                 >
-                  {t.protocol === 'rest' ? t.request.method : t.protocol.toUpperCase()}
+                  {t.protocol === 'rest' ? t.request.method : t.protocol === 'workflow' ? 'FLOW' : t.protocol.toUpperCase()}
                 </span>
                 <span className="tab-label">{t.name}</span>
                 {t.dirty && <span className="tab-dirty" title="Unsaved changes" />}
@@ -374,6 +377,9 @@ export function App() {
               <button className="btn btn-sm" onClick={() => store.newTab('s3')}>
                 + S3
               </button>
+              <button className="btn btn-sm" onClick={() => store.newTab('workflow')}>
+                <WorkflowIcon size={12} /> + Workflow
+              </button>
               {tab && (
                 <button className="btn btn-sm" onClick={saveActive} title="Save (⌘S)">
                   <Save size={12} /> Save
@@ -394,6 +400,7 @@ export function App() {
           {tab?.protocol === 'rest' && <RestPanel tab={tab} onSend={send} />}
           {tab?.protocol === 'grpc' && <GrpcPanel tab={tab} onSend={send} />}
           {tab?.protocol === 's3' && <S3Panel tab={tab} />}
+          {tab?.protocol === 'workflow' && <WorkflowPanel />}
         </main>
       </div>
 

@@ -327,6 +327,18 @@ export function installMockBridge(): void {
       };
     })(),
 
+    workflow: {
+      list: async () => [],
+      create: notImplemented,
+      save: async (w) => w,
+      remove: async () => {},
+      run: notImplemented,
+      cancel: async () => {},
+      onEvent: () => () => {},
+      exportReport: async () => null,
+      openReport: async () => '/tmp/report.html',
+    },
+
     interop: {
       importCurl: notImplemented,
       exportCurl: async () => "curl -X GET 'https://api.example.com'",

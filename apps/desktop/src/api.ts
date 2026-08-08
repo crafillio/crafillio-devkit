@@ -29,6 +29,9 @@ import type {
   SavedConnection,
   SavedRequest,
   Settings,
+  Workflow,
+  WorkflowEvent,
+  RunResult,
 } from '@crafillio/core';
 
 export interface EnvFile {
@@ -188,6 +191,22 @@ export interface CrafillioApi {
     onComplete(listener: (report: LoadReport) => void): () => void;
     /** Writes a finished run to CSV for sharing or archiving. */
     exportReport(report: LoadReport): Promise<string | null>;
+  };
+
+  /** Chained multi-step API workflows. */
+  workflow: {
+    list(): Promise<Workflow[]>;
+    create(name: string): Promise<Workflow>;
+    save(workflow: Workflow): Promise<Workflow>;
+    remove(id: string): Promise<void>;
+    /** Resolves with the run id; stage events arrive via `onEvent`. */
+    run(workflow: Workflow): Promise<string>;
+    cancel(runId: string): Promise<void>;
+    onEvent(listener: (event: WorkflowEvent) => void): () => void;
+    /** Writes the HTML report and returns its path. Null when cancelled. */
+    exportReport(result: RunResult): Promise<string | null>;
+    /** Opens a finished report in the system browser. */
+    openReport(result: RunResult): Promise<string>;
   };
 
   /** Import and export in formats other tools speak. */
