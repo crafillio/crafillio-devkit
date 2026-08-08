@@ -19,7 +19,9 @@
     "@grpc/proto-loader": "^0.7.13",
     "@smithy/node-http-handler": "^3.3.1",
     "protobufjs": "^7.4.0",
-    "undici": "^7.2.0"
+    "socks": "^2.8.9",
+    "undici": "^7.2.0",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@grpc/reflection": "^1.0.4",

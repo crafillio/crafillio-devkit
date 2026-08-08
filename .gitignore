@@ -14,6 +14,7 @@ tridex-license-private.pem
 # Local encryption key — never commit; it decrypts stored secrets.
 secret.key
 
-# Editor/tooling local config
+# Editor and assistant tooling directories
 .vscode/
 .idea/
+.*-tooling/

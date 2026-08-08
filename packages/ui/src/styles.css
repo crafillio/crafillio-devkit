@@ -31,7 +31,7 @@
   --text-muted: #a1a5b3;
   --text-dim: #82879a;
 
-  /* T-Systems magenta. `--accent` is lightened for legibility AS text on the
+  /* Brand magenta. `--accent` is lightened for legibility AS text on the
      dark ground; `--accent-fill` is the true brand value, used behind white
      button labels where it clears AA. */
   --accent: #ff5fae;
@@ -92,7 +92,7 @@
 /* ---------------------------------------------------------------- */
 
 :root[data-theme='light'] {
-  /* The T-Systems register: white panels on a cool ground, generous air,
+  /* The light register: white panels on a cool ground, generous air,
      near-black text, and magenta reserved for action. */
   --bg: #f2f3f6;
   --surface: #ffffff;
