@@ -464,7 +464,7 @@ function StepEditor({
   onChange: (next: Partial<WorkflowStep>) => void;
   onRemove: () => void;
 }) {
-  const [tab, setTab] = useState<'headers' | 'body' | 'inputs' | 'outputs'>('headers');
+  const [tab, setTab] = useState<'headers' | 'body' | 'inputs' | 'outputs' | 'repeat'>('headers');
   const urlRef = useRef<HTMLInputElement>(null);
   const grpcTab = step.kind === 'grpc';
   // Only earlier steps can be referenced — a later one has not run yet.
@@ -527,6 +527,14 @@ function StepEditor({
           style={{ flex: 1, fontWeight: 600 }}
           value={step.name}
           onChange={(e) => onChange({ name: e.target.value })}
+        />
+        <input
+          className="input mono wf-runif"
+          value={step.runIf ?? ''}
+          spellCheck={false}
+          placeholder='Run if… e.g. {{status}} == "ready"'
+          title="Skip this step unless the condition holds. Leave empty to always run."
+          onChange={(e) => onChange({ runIf: e.target.value || undefined })}
         />
         <label className="inline-check" title="Carry on even if this step fails">
           <input
@@ -623,6 +631,13 @@ function StepEditor({
         >
           Outputs{step.outputs.length ? <span className="count">{step.outputs.length}</span> : null}
         </button>
+        <button
+          className={`subtab ${tab === 'repeat' ? 'active' : ''}`}
+          onClick={() => setTab('repeat')}
+          title="Poll this step until a condition is met"
+        >
+          Repeat{step.repeat ? <span className="count">•</span> : null}
+        </button>
       </div>
 
       <div className="tab-body">
@@ -665,7 +680,294 @@ function StepEditor({
         )}
 
         {tab === 'outputs' && <OutputsEditor step={step} onChange={onChange} record={record} />}
+
+        {tab === 'repeat' && <RepeatEditor step={step} onChange={onChange} />}
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Repeat / polling                                                    */
+/* ------------------------------------------------------------------ */
+
+/** `{{name}} in ["a", "b"]` — the shape the simple editor writes and reads. */
+const MEMBERSHIP = /^\{\{([\w.-]+)\}\}\s+in\s+\[(.*)\]$/;
+
+function parseMembership(expr: string | undefined): { name: string; values: string[] } | null {
+  const match = MEMBERSHIP.exec((expr ?? '').trim());
+  if (!match) return null;
+  const values = match[2]!
+    .split(',')
+    .map((v) => v.trim().replace(/^["']|["']$/g, ''))
+    .filter((v) => v !== '');
+  return { name: match[1]!, values };
+}
+
+function buildMembership(name: string, values: string[]): string {
+  const list = values.map((v) => `"${v.replace(/"/g, '\\"')}"`).join(', ');
+  return `{{${name}}} in [${list}]`;
+}
+
+/** Splits "a, b , c" into values without losing one the user is mid-typing. */
+const splitValues = (text: string): string[] =>
+  text.split(',').map((v) => v.trim()).filter((v) => v !== '');
+
+function RepeatEditor({
+  step,
+  onChange,
+}: {
+  step: WorkflowStep;
+  onChange: (next: Partial<WorkflowStep>) => void;
+}) {
+  const repeat = step.repeat;
+  const enabled = repeat !== undefined;
+
+  const [advanced, setAdvanced] = useState(
+    () => repeat !== undefined && parseMembership(repeat.until) === null,
+  );
+  const [errors, setErrors] = useState<{ until?: string | null; failIf?: string | null }>({});
+
+  // Validated in the main process so there is one implementation of the
+  // language rather than a copy of the parser living in the renderer.
+  useEffect(() => {
+    let live = true;
+    const id = setTimeout(() => {
+      void (async () => {
+        const check = window.crafillio.workflow.checkCondition;
+        const until = repeat?.until?.trim() ? await check(repeat.until) : null;
+        const failIf = repeat?.failIf?.trim() ? await check(repeat.failIf) : null;
+        if (live) setErrors({ until, failIf });
+      })();
+    }, 250);
+    return () => {
+      live = false;
+      clearTimeout(id);
+    };
+  }, [repeat?.until, repeat?.failIf]);
+
+  const set = (next: Partial<NonNullable<WorkflowStep['repeat']>>): void => {
+    if (!repeat) return;
+    onChange({ repeat: { ...repeat, ...next } } as Partial<WorkflowStep>);
+  };
+
+  const watched = parseMembership(repeat?.until);
+  const failed = parseMembership(repeat?.failIf);
+  // Default to whatever the step already publishes, so the common case is one click.
+  const watchName = watched?.name ?? step.outputs[0]?.name ?? 'status';
+
+  const toggle = (on: boolean): void => {
+    onChange({
+      repeat: on
+        ? {
+            until: buildMembership(watchName, ['completed']),
+            failIf: buildMembership(watchName, ['failed']),
+            initialDelayMs: 0,
+            intervalMs: 2000,
+            maxAttempts: 30,
+          }
+        : undefined,
+    } as Partial<WorkflowStep>);
+  };
+
+  return (
+    <div className="wf-repeat">
+      <div className="wf-hint">
+        Calls this step over and over until the answer settles — for status endpoints that
+        report <code>queued</code>, then <code>running</code>, then <code>completed</code>.
+        The step's outputs are re-read every time, so the condition always sees the newest
+        response.
+      </div>
+
+      <label className="inline-check" style={{ marginBottom: 12 }}>
+        <input type="checkbox" className="checkbox" checked={enabled} onChange={(e) => toggle(e.target.checked)} />
+        Repeat this step until a condition is met
+      </label>
+
+      {repeat && (
+        <>
+          {!advanced ? (
+            <div className="wf-repeat-simple">
+              <div className="field">
+                <label>Watch this output</label>
+                <select
+                  className="select"
+                  value={watchName}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    set({
+                      until: buildMembership(name, watched?.values ?? ['completed']),
+                      failIf:
+                        repeat.failIf === undefined
+                          ? undefined
+                          : buildMembership(name, failed?.values ?? ['failed']),
+                    });
+                  }}
+                >
+                  {step.outputs.length === 0 && <option value={watchName}>{watchName}</option>}
+                  {step.outputs.map((o) => (
+                    <option key={o.id} value={o.name}>
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+                {step.outputs.length === 0 && (
+                  <p className="field-note warn">
+                    This step publishes no outputs yet. Add one on the Outputs tab — the
+                    condition can only read what the step publishes.
+                  </p>
+                )}
+              </div>
+
+              <div className="field">
+                <label>Succeed when it is one of</label>
+                <input
+                  className="input"
+                  value={(watched?.values ?? []).join(', ')}
+                  placeholder="completed, succeeded"
+                  onChange={(e) => set({ until: buildMembership(watchName, splitValues(e.target.value)) })}
+                />
+              </div>
+
+              <div className="field">
+                <label>Fail when it is one of</label>
+                <input
+                  className="input"
+                  value={(failed?.values ?? []).join(', ')}
+                  placeholder="failed, cancelled"
+                  onChange={(e) => {
+                    const values = splitValues(e.target.value);
+                    set({ failIf: values.length ? buildMembership(watchName, values) : undefined });
+                  }}
+                />
+                <p className="field-note">
+                  Optional. Without it, a job that has already failed is polled until the
+                  attempts run out.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="wf-repeat-simple">
+              <div className="field">
+                <label>Keep going until</label>
+                <input
+                  className={`input mono ${errors.until ? 'invalid' : ''}`}
+                  value={repeat.until}
+                  spellCheck={false}
+                  placeholder={'{{status}} == "completed"'}
+                  onChange={(e) => set({ until: e.target.value })}
+                />
+                {errors.until && <p className="field-note warn">{errors.until}</p>}
+              </div>
+
+              <div className="field">
+                <label>Stop and fail when</label>
+                <input
+                  className={`input mono ${errors.failIf ? 'invalid' : ''}`}
+                  value={repeat.failIf ?? ''}
+                  spellCheck={false}
+                  placeholder={'{{status}} in ["failed", "cancelled"]'}
+                  onChange={(e) => set({ failIf: e.target.value || undefined })}
+                />
+                {errors.failIf && <p className="field-note warn">{errors.failIf}</p>}
+              </div>
+
+              <p className="field-note">
+                Comparisons <code>== != &gt; &lt; &gt;= &lt;=</code>, and{' '}
+                <code>contains</code>, <code>matches</code>, <code>in [a, b]</code>, combined
+                with <code>and</code>, <code>or</code>, <code>not</code> and parentheses.
+              </p>
+            </div>
+          )}
+
+          <div className="wf-repeat-timing">
+            <div className="field">
+              <label>Delay before first call</label>
+              <input
+                type="number"
+                className="input"
+                min={0}
+                value={repeat.initialDelayMs ?? 0}
+                onChange={(e) => set({ initialDelayMs: Math.max(0, Number(e.target.value)) })}
+              />
+              <p className="field-note">ms — work just started is rarely ready immediately.</p>
+            </div>
+            <div className="field">
+              <label>Delay between tries</label>
+              <input
+                type="number"
+                className="input"
+                min={0}
+                value={repeat.intervalMs}
+                onChange={(e) => set({ intervalMs: Math.max(0, Number(e.target.value)) })}
+              />
+              <p className="field-note">ms</p>
+            </div>
+            <div className="field">
+              <label>Give up after</label>
+              <input
+                type="number"
+                className="input"
+                min={1}
+                value={repeat.maxAttempts}
+                onChange={(e) => set({ maxAttempts: Math.max(1, Number(e.target.value)) })}
+              />
+              <p className="field-note">tries</p>
+            </div>
+            <div className="field">
+              <label>Or after</label>
+              <input
+                type="number"
+                className="input"
+                min={0}
+                value={repeat.timeoutMs ?? 0}
+                onChange={(e) => set({ timeoutMs: Number(e.target.value) || undefined })}
+              />
+              <p className="field-note">ms overall — 0 for no limit.</p>
+            </div>
+            <div className="field">
+              <label>Back off by</label>
+              <input
+                type="number"
+                className="input"
+                min={1}
+                step={0.5}
+                value={repeat.backoff ?? 1}
+                onChange={(e) => set({ backoff: Number(e.target.value) || undefined })}
+              />
+              <p className="field-note">×— 1 polls at a steady rate, 2 doubles each wait.</p>
+            </div>
+          </div>
+
+          <label className="inline-check" style={{ marginTop: 4 }}>
+            <input
+              type="checkbox"
+              className="checkbox"
+              checked={repeat.retryOnError ?? false}
+              onChange={(e) => set({ retryOnError: e.target.checked || undefined })}
+            />
+            Retry when the call itself fails
+          </label>
+          <p className="field-note" style={{ marginTop: 2 }}>
+            Rides out a transient 503. Leave off when the endpoint should always answer —
+            otherwise a genuinely broken one looks like a slow one.
+          </p>
+
+          <button
+            className="btn btn-sm"
+            style={{ marginTop: 14, alignSelf: 'flex-start' }}
+            onClick={() => setAdvanced(!advanced)}
+          >
+            {advanced ? 'Use the simple form' : 'Write the condition myself'}
+          </button>
+          {advanced && parseMembership(repeat.until) === null && (
+            <p className="field-note" style={{ marginTop: 6 }}>
+              The simple form only understands “is one of” conditions, so switching back will
+              rewrite what you have here.
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }

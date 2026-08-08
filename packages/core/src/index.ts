@@ -67,11 +67,13 @@ export type {
   StepInput,
   StepOutput,
   StepRecord,
+  StepRepeat,
   StepStatus,
   InputSource,
   RunResult,
 } from './workflow/types.js';
 
+export { evaluateCondition, checkCondition, isTruthy } from './workflow/condition.js';
 export { importCurl, exportCurl } from './interop/curl.js';
 export { importPostmanCollection } from './interop/postman.js';
 export { importOpenApi, type OpenApiImportResult } from './interop/openapi.js';

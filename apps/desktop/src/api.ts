@@ -210,6 +210,12 @@ export interface CrafillioApi {
     /** Reads a workflow file in under a fresh id. Null when cancelled. */
     import(): Promise<Workflow | null>;
     /** Resolves with the run id; stage events arrive via `onEvent`. */
+    /**
+     * Validates a condition expression, returning the parse error or null.
+     * Checked here rather than in the renderer so there is one implementation
+     * of the language, not a copy that can drift from the one that runs.
+     */
+    checkCondition(expression: string): Promise<string | null>;
     run(workflow: Workflow): Promise<string>;
     cancel(runId: string): Promise<void>;
     onEvent(listener: (event: WorkflowEvent) => void): () => void;

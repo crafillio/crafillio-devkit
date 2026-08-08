@@ -24,6 +24,7 @@ import {
   perf,
   importCurl,
   exportCurl,
+  checkCondition,
   importPostmanCollection,
   importOpenApi,
   importHoppscotch,
@@ -499,6 +500,8 @@ function registerHandlers(): void {
   });
 
   /* Interop */
+  handle('workflow:checkCondition', (expression: string) => checkCondition(expression));
+
   handle('interop:importCurl', (command: string) => importCurl(command));
   handle('interop:exportCurl', (request: Parameters<typeof exportCurl>[0]) => exportCurl(request));
 

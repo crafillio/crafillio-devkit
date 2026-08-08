@@ -109,6 +109,7 @@ const api: CrafillioApi = {
     remove: call('workflow:remove'),
     export: call('workflow:export'),
     import: call('workflow:import'),
+    checkCondition: call('workflow:checkCondition'),
     run: call('workflow:run'),
     cancel: call('workflow:cancel'),
     onEvent: (listener) => subscribe('workflow:event', listener as never),

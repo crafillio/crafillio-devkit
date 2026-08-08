@@ -263,6 +263,24 @@ function stepCard(step: StepRecord): string {
         .join('')}</tbody></table>`
     : '<p class="none">This step published nothing to later steps.</p>';
 
+  // A step that polled for four minutes should not read as a single call —
+  // the attempts are most of what happened, and the request/response shown
+  // above are only the last one.
+  const polling =
+    step.pollLog && step.pollLog.length > 0
+      ? `<div class="poll">
+          <h4>Polled ${step.pollLog.length} time${step.pollLog.length === 1 ? '' : 's'}</h4>
+          <table class="kv"><thead><tr><th>Attempt</th><th>At</th><th>Saw</th><th></th></tr></thead><tbody>${step.pollLog
+          .map(
+            (entry) =>
+              `<tr><td class="k">${entry.attempt}</td><td class="src">${formatMs(entry.elapsedMs)}</td>` +
+              `<td class="v">${esc(entry.error ?? entry.summary)}</td>` +
+              `<td class="src">${entry.error ? 'error, retried' : entry.settled ? 'settled' : 'not yet'}</td></tr>`,
+          )
+          .join('')}</tbody></table>
+        </div>`
+      : '';
+
   const artifacts = step.artifacts.length
     ? `<div class="artifacts">${step.artifacts
         .map(
@@ -302,6 +320,8 @@ function stepCard(step: StepRecord): string {
       <h4>Inputs used</h4>
       ${inputs}
     </div>
+
+    ${polling ? `<div class="pane">${polling}</div>` : ''}
 
     ${
       step.request
@@ -447,6 +467,8 @@ pre{background:var(--bg);border:1px solid var(--border);border-radius:8px;paddin
 .error{margin:0;padding:13px 18px;background:var(--bad-soft);border-bottom:1px solid var(--border);color:var(--bad);font-size:13.5px}
 .error strong{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
 
+.poll h4{margin:0 0 8px}
+.poll table{margin:0}
 .artifacts{display:flex;flex-wrap:wrap;gap:10px;margin-top:13px}
 .download{display:flex;align-items:center;gap:11px;padding:11px 15px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:9px;text-decoration:none;color:var(--text);transition:border-color .15s,background .15s}
 .download:hover{border-color:var(--brand);background:var(--bg)}

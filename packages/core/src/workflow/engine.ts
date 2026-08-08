@@ -15,6 +15,7 @@ import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { sendRest } from '../protocols/rest.js';
 import { createUnaryInvoker } from '../protocols/grpc.js';
+import { evaluateCondition } from './condition.js';
 import type { GrpcRequest, RestRequest, RestResponse } from '../types.js';
 import { getPath, stringifyValue } from './extract.js';
 import type {
@@ -116,6 +117,18 @@ function interpolate<T>(node: T, context: Record<string, string>, missing: Set<s
     return out as T;
   }
   return node;
+}
+
+/**
+ * Sleeps, but notices cancellation. A plain setTimeout would leave a cancelled
+ * run sitting out the rest of a long polling interval before it noticed.
+ */
+async function delay(ms: number, isCancelled: () => boolean): Promise<void> {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    if (isCancelled()) return;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(100, end - Date.now())));
+  }
 }
 
 /** Parses a response body as JSON, or returns undefined when it is not JSON. */
@@ -357,128 +370,249 @@ export function runWorkflow(
 
         /* 2. Optional guard. */
         if (step.runIf !== undefined && step.runIf.trim() !== '') {
-          const missing = new Set<string>();
-          const resolved = interpolate(step.runIf, context, missing).trim();
-          const falsy = ['', 'false', '0', 'null', 'undefined'];
-          if (falsy.includes(resolved.toLowerCase())) {
+          const verdict = evaluateCondition(step.runIf, context);
+          if (verdict.unknown.length > 0) {
+            throw new Error(
+              `Condition refers to ${verdict.unknown.map((n) => `{{${n}}}`).join(', ')}, ` +
+                'which no earlier step or environment variable provides.',
+            );
+          }
+          if (!verdict.value) {
             records.push(skipped(step, index, `Condition "${step.runIf}" was not met.`));
             onEvent({ type: 'step-finish', runId, record: records[records.length - 1]! });
             continue;
           }
         }
 
-        /* 3. Send. */
-        const missing = new Set<string>();
-        // Whatever the protocol, the JSON body a step publishes from.
-        let json: unknown;
+        /* 3. Send, publish outputs, and poll when the step asks for it. */
 
-        if (step.kind === 'grpc') {
-          const request = interpolate(step.grpc, context, missing);
-          record.request = snapshotGrpc(request);
+        // A single attempt: send the request, then publish this step's outputs
+        // into the shared context. Factored out so polling just calls it again
+        // — each attempt overwrites the same variables, so {{status}} always
+        // refers to the newest response rather than the first one.
+        const attemptOnce = async (): Promise<void> => {
+          const missing = new Set<string>();
+          // Whatever the protocol, the JSON body a step publishes from.
+          let json: unknown;
 
-          if (missing.size > 0) {
-            throw new Error(
-              `Unresolved variable${missing.size === 1 ? '' : 's'} in this step: ` +
-                `${[...missing].map((m) => `{{${m}}}`).join(', ')}`,
-            );
-          }
+          if (step.kind === 'grpc') {
+            const request = interpolate(step.grpc, context, missing);
+            record.request = snapshotGrpc(request);
 
-          const callStarted = process.hrtime.bigint();
-          // One channel per step: a workflow step is a single call, so pooling
-          // across steps would keep connections open to servers no longer used.
-          const invoker = await createUnaryInvoker(request);
-          try {
-            const result = await invoker.invoke();
-            json = result.message ?? {};
-            const body = JSON.stringify(json, null, 2);
+            if (missing.size > 0) {
+              throw new Error(
+                `Unresolved variable${missing.size === 1 ? '' : 's'} in this step: ` +
+                  `${[...missing].map((m) => `{{${m}}}`).join(', ')}`,
+              );
+            }
+
+            const callStarted = process.hrtime.bigint();
+            // One channel per step: a workflow step is a single call, so pooling
+            // across steps would keep connections open to servers no longer used.
+            const invoker = await createUnaryInvoker(request);
+            try {
+              const result = await invoker.invoke();
+              json = result.message ?? {};
+              const body = JSON.stringify(json, null, 2);
+              record.response = {
+                status: 0,
+                statusLabel: result.statusName,
+                ok: true,
+                headers: [],
+                body,
+                bodyEncoding: 'utf8',
+                size: Buffer.byteLength(body),
+                timingMs: Number(process.hrtime.bigint() - callStarted) / 1e6,
+              };
+            } catch (err) {
+              const failure = err as Error & { statusName?: string; statusCode?: number };
+              record.response = {
+                status: failure.statusCode ?? 2,
+                statusLabel: failure.statusName ?? 'UNKNOWN',
+                ok: false,
+                headers: [],
+                body: failure.message,
+                bodyEncoding: 'utf8',
+                size: Buffer.byteLength(failure.message),
+                timingMs: Number(process.hrtime.bigint() - callStarted) / 1e6,
+              };
+              throw new Error(`gRPC call failed: ${failure.statusName ?? ''} ${failure.message}`.trim());
+            } finally {
+              invoker.close();
+            }
+
+            grpcResults.set(step.id, json);
+          } else {
+            const request = interpolate(step.request, context, missing);
+            record.request = snapshotRequest(request);
+
+            if (missing.size > 0) {
+              throw new Error(
+                `Unresolved variable${missing.size === 1 ? '' : 's'} in this step: ` +
+                  `${[...missing].map((m) => `{{${m}}}`).join(', ')}`,
+              );
+            }
+
+            const response = await sendRest(request);
+            states.set(step.id, { response });
+
+            const contentType = guessContentType(response.headers);
+            const inlineBody =
+              response.body.length > INLINE_BODY_LIMIT
+                ? `${response.body.slice(0, INLINE_BODY_LIMIT)}…`
+                : response.body;
+
             record.response = {
-              status: 0,
-              statusLabel: result.statusName,
-              ok: true,
-              headers: [],
-              body,
-              bodyEncoding: 'utf8',
-              size: Buffer.byteLength(body),
-              timingMs: Number(process.hrtime.bigint() - callStarted) / 1e6,
-            };
-          } catch (err) {
-            const failure = err as Error & { statusName?: string; statusCode?: number };
-            record.response = {
-              status: failure.statusCode ?? 2,
-              statusLabel: failure.statusName ?? 'UNKNOWN',
-              ok: false,
-              headers: [],
-              body: failure.message,
-              bodyEncoding: 'utf8',
-              size: Buffer.byteLength(failure.message),
-              timingMs: Number(process.hrtime.bigint() - callStarted) / 1e6,
-            };
-            throw new Error(`gRPC call failed: ${failure.statusName ?? ''} ${failure.message}`.trim());
-          } finally {
-            invoker.close();
-          }
-
-          grpcResults.set(step.id, json);
-        } else {
-          const request = interpolate(step.request, context, missing);
-          record.request = snapshotRequest(request);
-
-          if (missing.size > 0) {
-            throw new Error(
-              `Unresolved variable${missing.size === 1 ? '' : 's'} in this step: ` +
-                `${[...missing].map((m) => `{{${m}}}`).join(', ')}`,
-            );
-          }
-
-          const response = await sendRest(request);
-          states.set(step.id, { response });
-
-          const contentType = guessContentType(response.headers);
-          const inlineBody =
-            response.body.length > INLINE_BODY_LIMIT
-              ? `${response.body.slice(0, INLINE_BODY_LIMIT)}…`
-              : response.body;
-
-          record.response = {
-            status: response.status,
-            ok: response.ok,
-            headers: Object.entries(response.headers),
-            body: inlineBody,
-            bodyEncoding: response.bodyEncoding,
-            size: response.size,
-            timingMs: response.timing.totalMs,
-          };
-
-          // A binary response is a file the user will want out of the report.
-          if (response.bodyEncoding === 'base64') {
-            record.artifacts.push({
-              name: `${step.name.replace(/[^\w.-]+/g, '-').toLowerCase()}.${extensionFor(contentType)}`,
-              contentType,
-              base64: response.body,
+              status: response.status,
+              ok: response.ok,
+              headers: Object.entries(response.headers),
+              body: inlineBody,
+              bodyEncoding: response.bodyEncoding,
               size: response.size,
+              timingMs: response.timing.totalMs,
+            };
+
+            // A binary response is a file the user will want out of the report.
+            if (response.bodyEncoding === 'base64') {
+              record.artifacts.push({
+                name: `${step.name.replace(/[^\w.-]+/g, '-').toLowerCase()}.${extensionFor(contentType)}`,
+                contentType,
+                base64: response.body,
+                size: response.size,
+              });
+            }
+
+            if (!response.ok) {
+              throw new Error(`Request failed with HTTP ${response.status}.`);
+            }
+
+            json = parseJson(response);
+            states.set(step.id, { response, json });
+          }
+
+          /* 4. Publish outputs. */
+
+          // Replaced, not appended: when polling, these describe the attempt
+          // that just happened, not every attempt stacked on top of each other.
+          record.extractedOutputs = [];
+
+          for (const output of step.outputs) {
+            const raw = output.path.trim() === '' ? json : getPath(json, output.path);
+            const value = stringifyValue(raw);
+            context[output.name] = value;
+            const shown = truncate(value);
+            record.extractedOutputs.push({
+              name: output.name,
+              value: shown.value,
+              truncated: shown.truncated,
             });
           }
 
-          if (!response.ok) {
-            throw new Error(`Request failed with HTTP ${response.status}.`);
+        };
+
+        const repeat = step.repeat;
+
+        if (!repeat) {
+          await attemptOnce();
+        } else {
+          if (repeat.maxAttempts < 1) throw new Error('maxAttempts must be at least 1.');
+          if (repeat.until.trim() === '') throw new Error('A polling step needs an "until" condition.');
+
+          record.attempts = 0;
+          record.pollLog = [];
+
+          // The delay counts against the overall timeout: "give up after 30s"
+          // should mean 30 seconds from here, not 30 seconds after the wait.
+          const deadline =
+            repeat.timeoutMs && repeat.timeoutMs > 0 ? Date.now() + repeat.timeoutMs : null;
+          let interval = Math.max(0, repeat.intervalMs);
+
+          if (repeat.initialDelayMs !== undefined && repeat.initialDelayMs > 0) {
+            const wait =
+              deadline === null
+                ? repeat.initialDelayMs
+                : Math.min(repeat.initialDelayMs, deadline - Date.now());
+            await delay(wait, () => cancelled);
+            if (cancelled) throw new Error('Run cancelled while waiting to poll.');
           }
 
-          json = parseJson(response);
-          states.set(step.id, { response, json });
-        }
+          for (;;) {
+            record.attempts += 1;
+            const attempt = record.attempts;
+            let attemptError: string | undefined;
 
-        /* 4. Publish outputs. */
+            try {
+              await attemptOnce();
+            } catch (err) {
+              // Without retryOnError a failed attempt is simply a failed step;
+              // retrying it would hide a broken endpoint behind a long wait.
+              if (!repeat.retryOnError) throw err;
+              attemptError = (err as Error).message;
+            }
 
-        for (const output of step.outputs) {
-          const raw = output.path.trim() === '' ? json : getPath(json, output.path);
-          const value = stringifyValue(raw);
-          context[output.name] = value;
-          const shown = truncate(value);
-          record.extractedOutputs.push({
-            name: output.name,
-            value: shown.value,
-            truncated: shown.truncated,
-          });
+            const summary =
+              record.extractedOutputs.map((o) => `${o.name}=${o.value}`).join(' ') || 'no outputs';
+
+            let settled = false;
+            if (attemptError === undefined) {
+              // failIf is checked first: a job that has permanently failed
+              // should stop now rather than after every remaining attempt.
+              if (repeat.failIf !== undefined && repeat.failIf.trim() !== '') {
+                const bad = evaluateCondition(repeat.failIf, context);
+                if (bad.value) {
+                  record.pollLog.push({ attempt, elapsedMs: elapsed(stepStarted), summary, settled: false });
+                  throw new Error(
+                    `Stopped polling after ${attempt} attempt${attempt === 1 ? '' : 's'}: ` +
+                      `"${repeat.failIf}" held. Last saw ${summary}.`,
+                  );
+                }
+              }
+
+              const verdict = evaluateCondition(repeat.until, context);
+              if (verdict.unknown.length > 0) {
+                throw new Error(
+                  `The until condition refers to ${verdict.unknown.map((n) => `{{${n}}}`).join(', ')}, ` +
+                    'which this step does not publish. Add it as an output.',
+                );
+              }
+              settled = verdict.value;
+            }
+
+            record.pollLog.push({
+              attempt,
+              elapsedMs: elapsed(stepStarted),
+              summary,
+              settled,
+              ...(attemptError === undefined ? {} : { error: attemptError }),
+            });
+
+            if (settled) break;
+
+            if (attempt >= repeat.maxAttempts) {
+              throw new Error(
+                `Gave up after ${attempt} attempt${attempt === 1 ? '' : 's'}: ` +
+                  `"${repeat.until}" never held. Last saw ${summary}.` +
+                  (attemptError === undefined ? '' : ` Last error: ${attemptError}`),
+              );
+            }
+            if (deadline !== null && Date.now() >= deadline) {
+              throw new Error(
+                `Gave up after ${repeat.timeoutMs}ms: "${repeat.until}" never held. ` +
+                  `Last saw ${summary}.`,
+              );
+            }
+            if (cancelled) throw new Error('Run cancelled while polling.');
+
+            // Never sleep past the deadline — otherwise a long interval turns
+            // the timeout into "the timeout, rounded up to the next attempt".
+            const wait = deadline === null ? interval : Math.min(interval, deadline - Date.now());
+            await delay(wait, () => cancelled);
+            if (cancelled) throw new Error('Run cancelled while polling.');
+
+            if (repeat.backoff !== undefined && repeat.backoff > 1) {
+              interval = Math.round(interval * repeat.backoff);
+            }
+          }
         }
 
         record.status = 'success';

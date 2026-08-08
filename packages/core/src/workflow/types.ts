@@ -38,6 +38,55 @@ export interface StepOutput {
   path: string;
 }
 
+/**
+ * Re-runs a step until its answer settles.
+ *
+ * Long-running work is usually exposed as a status endpoint that returns
+ * "queued", then "running", then "completed" — polling it is not an edge case
+ * but the normal way to consume that kind of API. The step's outputs are
+ * republished after every attempt, so `until` reads the newest response.
+ */
+export interface StepRepeat {
+  /**
+   * Keep going until this holds, e.g. `{{status}} == "completed"`.
+   * Evaluated after each attempt, once the step's outputs are published.
+   */
+  until: string;
+  /**
+   * Wait this long before the very first call.
+   *
+   * Work kicked off by the previous step is rarely ready immediately, so
+   * polling straight away just burns an attempt on a certain "queued".
+   */
+  initialDelayMs?: number;
+  /** Wait between attempts, in milliseconds. */
+  intervalMs: number;
+  /** Give up after this many attempts. */
+  maxAttempts: number;
+  /**
+   * Give up after this long overall, whichever comes first. Guards against a
+   * slow endpoint turning `maxAttempts × intervalMs` into a much longer wait.
+   */
+  timeoutMs?: number;
+  /**
+   * Stop early and fail when this holds, e.g. `{{status}} == "failed"`.
+   * Without it, a job that has permanently failed is polled until the attempts
+   * run out.
+   */
+  failIf?: string;
+  /**
+   * Multiplies the interval after each attempt. 1 (or absent) polls at a fixed
+   * rate; 2 backs off exponentially.
+   */
+  backoff?: number;
+  /**
+   * Treat a failed attempt as "not settled yet" and retry, instead of failing
+   * the step. For a status endpoint that occasionally 503s, this is what you
+   * want; for one that should always answer, it hides a real problem.
+   */
+  retryOnError?: boolean;
+}
+
 /** Everything a step carries regardless of which protocol it speaks. */
 interface WorkflowStepBase {
   id: string;
@@ -46,8 +95,10 @@ interface WorkflowStepBase {
   outputs: StepOutput[];
   /** Keep going when this step fails, rather than stopping the run. */
   continueOnError: boolean;
-  /** Skip the step unless this expression is truthy, e.g. "{{userId}}". */
+  /** Skip the step unless this expression holds, e.g. "{{userId}}". */
   runIf?: string;
+  /** Poll this step until a condition is met. Absent means run it once. */
+  repeat?: StepRepeat;
   /** Canvas position. Absent for workflows built before the visual editor. */
   position?: { x: number; y: number };
 }
@@ -131,6 +182,26 @@ export interface StepRecord {
   };
   /** Values published to later steps. */
   extractedOutputs: Array<{ name: string; value: string; truncated: boolean }>;
+  /**
+   * How many times the step ran. Absent or 1 for an ordinary step; higher when
+   * it polled. The request/response above are the final attempt's.
+   */
+  attempts?: number;
+  /**
+   * One line per polling attempt, so a run that waited four minutes shows what
+   * it was seeing the whole time rather than only how it ended.
+   */
+  pollLog?: Array<{
+    attempt: number;
+    /** Milliseconds from the start of the step. */
+    elapsedMs: number;
+    /** The step's outputs at that attempt, as `name=value` pairs. */
+    summary: string;
+    /** Whether `until` held on this attempt. */
+    settled: boolean;
+    /** Present when the attempt itself failed and was retried. */
+    error?: string;
+  }>;
   error?: string;
   /** Binary or file-like results offered as downloads in the report. */
   artifacts: Array<{ name: string; contentType: string; base64: string; size: number }>;

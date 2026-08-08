@@ -112,6 +112,13 @@ function Credit() {
       <p className="credit-tagline">
         Made by a developer, for developers, with <span className="credit-heart">♥</span>
       </p>
+      <button
+        className="credit-site"
+        onClick={() => void open('https://crafillio.github.io')}
+        title="Open crafillio.github.io"
+      >
+        crafillio.github.io
+      </button>
     </div>
   );
 }
@@ -204,8 +211,15 @@ function Collections() {
         <button className="btn btn-sm" onClick={create} style={{ flex: 1 }}>
           <FolderPlus size={13} /> {t.common.add}
         </button>
-        <button className="btn btn-sm btn-icon" onClick={importCollection} title="Import collection">
-          <Upload size={13} />
+        {/* Named rather than icon-only: an unlabelled upload glyph reads as
+            "missing feature" to anyone who has not already found it. */}
+        <button
+          className="btn btn-sm"
+          onClick={importCollection}
+          style={{ flex: 1 }}
+          title="Import from Postman, OpenAPI, Bruno or Hoppscotch"
+        >
+          <Upload size={13} /> {t.common.import}
         </button>
       </div>
 
@@ -223,7 +237,7 @@ function Collections() {
           <div className="empty-note">
             No collections yet.
             <br />
-            Create one, or import from Postman.
+            Create one, or import from Postman, OpenAPI, Bruno or Hoppscotch.
           </div>
         )}
 

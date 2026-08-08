@@ -1931,3 +1931,78 @@ kbd {
 
 .credit-heart { color: var(--accent); }
 
+
+/* ---------------------------------------------------------------- */
+/* Workflow: repeat / polling                                        */
+/* ---------------------------------------------------------------- */
+
+.wf-repeat {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px 20px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.wf-repeat-simple {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+/* Auto-fit rather than a fixed column count: the panel is resizable, and a
+   five-column grid becomes unreadable long before the pane gets narrow. */
+.wf-repeat-timing {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 12px 14px;
+  padding: 14px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.wf-repeat .field { display: flex; flex-direction: column; gap: 5px; }
+
+.wf-repeat .field > label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.01em;
+}
+
+.field-note {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+
+.field-note.warn { color: var(--amber); }
+
+.field-note code {
+  padding: 1px 4px;
+  background: var(--surface-3);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.input.invalid,
+.input.invalid:focus {
+  border-color: var(--red);
+  outline-color: var(--red);
+}
+
+/* The always-visible guard on the step header. Kept narrow so it never
+   crowds out the step name, which is what people scan for. */
+.wf-runif {
+  flex: 0 1 240px;
+  min-width: 120px;
+  font-size: 11px;
+}

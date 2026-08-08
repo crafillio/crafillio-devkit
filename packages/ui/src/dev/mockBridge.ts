@@ -342,6 +342,7 @@ export function installMockBridge(): void {
       remove: async () => {},
       export: async () => null,
       import: async () => null,
+      checkCondition: async () => null,
       run: notImplemented,
       cancel: async () => {},
       onEvent: () => () => {},
