@@ -24,6 +24,7 @@ import { askChoice, askConfirm, askName } from '../state/dialogs';
 import { formatDate } from '../lib/format';
 import { uid } from '../lib/defaults';
 import { useT } from '../i18n';
+import { AUTHOR_AVATAR } from '../assets/avatar';
 
 type Section = 'collections' | 'workflows' | 'history' | 's3';
 
@@ -72,7 +73,46 @@ export function Sidebar({ onEditConnection }: Props) {
       {section === 'workflows' && <Workflows />}
       {section === 'history' && <HistoryList />}
       {section === 's3' && <Connections onEdit={onEditConnection} />}
+
+      <Credit />
     </aside>
+  );
+}
+
+/**
+ * Author credit, pinned to the foot of the sidebar.
+ *
+ * Quiet by default and out of the way of the tree above it; the portal link
+ * opens in the system browser rather than inside the app.
+ */
+function Credit() {
+  const toast = useStore((s) => s.toast);
+
+  const open = async (url: string): Promise<void> => {
+    try {
+      await window.crafillio.app.openExternal(url);
+    } catch (err) {
+      toast('error', (err as Error).message);
+    }
+  };
+
+  return (
+    <div className="credit">
+      <button
+        className="credit-main"
+        onClick={() => void open('https://crafillio.com')}
+        title="Amit Singh — crafillio.com"
+      >
+        <img className="credit-avatar" src={AUTHOR_AVATAR} alt="" width="30" height="30" />
+        <span className="credit-text">
+          <span className="credit-by">Developed by</span>
+          <span className="credit-name">Amit Singh</span>
+        </span>
+      </button>
+      <p className="credit-tagline">
+        Made by a developer, for developers, with <span className="credit-heart">♥</span>
+      </p>
+    </div>
   );
 }
 

@@ -36,8 +36,4 @@ nsis:
   allowToChangeInstallationDirectory: true
   perMachine: false
 
-linux:
-  category: Development
-  target:
-    - AppImage
-    - deb
+# macOS and Windows only — the platforms this is distributed for.

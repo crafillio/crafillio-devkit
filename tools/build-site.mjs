@@ -36,11 +36,23 @@ const AVATAR = `https://github.com/${HANDLE}.png?size=240`;
  * location are the author's to write, and are marked in github-profile/SETUP.md
  * rather than invented here.
  */
+const ROLE = 'Full-stack developer · Open-source professional';
+
 const ABOUT = [
-  'I build developer tools — the kind that sit open all day, so they had better be quick, honest and quiet.',
-  'Everything here runs on your own machine. No account, no telemetry, no service in the middle deciding what it may keep. Collections are plain files you can read, diff and commit.',
-  'I care most about the parts that are easy to get wrong quietly: a load test that counts a 500 as a pass, a variable that resolves to an empty string, a metadata edit that drops the header you did not mention. Those are the details these tools are built around.',
+  'I work across the stack — services, data and the interfaces on top of them — and I build developer tools for the work I do every day.',
+  'Everything I release runs on your own machine. No account, no telemetry, no service in the middle deciding what it may keep. Your work stays as plain files you can read, diff and commit.',
 ];
+
+/** Grouped so the list reads as areas of work, not a keyword dump. */
+const STACK = [
+  { group: 'Languages', items: ['Java', 'Python', 'TypeScript', 'JavaScript'] },
+  { group: 'Frontend', items: ['Angular', 'React', 'Electron'] },
+  { group: 'Data', items: ['PostgreSQL', 'Oracle', 'Neo4j'] },
+  { group: 'Platform', items: ['Docker', 'Kubernetes', 'Camunda'] },
+];
+
+/** The avatar is copied into docs/assets so the page needs nothing remote. */
+const AVATAR_LOCAL = 'assets/avatar.jpg';
 
 /* ------------------------------------------------------------------ */
 /* Fonts                                                               */
@@ -225,42 +237,96 @@ const body = `
 <header class="top">
   <div class="wrap top-inner">
     <a class="brand" href="#main">
-      <span class="brand-mark">${LOGO(26)}</span>
+      <span class="brand-mark">${LOGO(24)}</span>
       <span>${esc(AUTHOR)}</span>
     </a>
     <nav>
       <a href="#tools">Tools</a>
       <a href="#download">Download</a>
       <a href="how-it-works.html">How it works</a>
-      <a href="#about">About</a>
       <a href="${esc(GH_USER)}">GitHub</a>
     </nav>
   </div>
 </header>
 
 <main id="main">
-  <section class="hero">
-    <div class="wrap">
-      <p class="eyebrow">Developer tools</p>
-      <h1>Tools I build for the work<br><em>I do every day.</em></h1>
-      <p class="lede">
-        Software that runs on your own machine, keeps your data there, and tells you the truth
-        about what it did. Open source, and built to be read.
-      </p>
-      <div class="cta">
-        <a class="btn btn-primary" href="#download">Download</a>
-        <a class="btn" href="#tools">See the tools</a>
-        <a class="btn" href="how-it-works.html">How it works</a>
+  <section class="wrap intro" id="about">
+    <div class="intro-grid">
+      <div class="intro-photo">
+        <img src="${esc(AVATAR_LOCAL)}" alt="${esc(AUTHOR)}" width="120" height="120"
+             onerror="this.closest('.intro-photo').classList.add('no-photo')">
+        <span class="intro-initials" aria-hidden="true">AS</span>
+      </div>
+
+      <div>
+        <h1>${esc(AUTHOR)}</h1>
+        <p class="role">${esc(ROLE)}</p>
+        ${ABOUT.map((p) => `<p class="intro-copy">${esc(p)}</p>`).join('')}
+
+        <div class="stack">
+          ${STACK.map((g) => `
+            <div class="stack-row">
+              <span class="stack-label">${esc(g.group)}</span>
+              <span class="stack-items">
+                ${g.items.map((i) => `<span class="chip">${esc(i)}</span>`).join('')}
+              </span>
+            </div>`).join('')}
+          <p class="stack-more">…and whatever the problem needs.</p>
+        </div>
+
+        <div class="cta">
+          <a class="btn btn-primary" href="${esc(PORTAL)}">crafillio.com</a>
+          <a class="btn" href="${esc(GH_USER)}">GitHub</a>
+        </div>
       </div>
     </div>
   </section>
 
-  <section class="wrap" id="tools">
-    ${TOOLS.map(toolSection).join('')}
+  <section class="wrap tools-section" id="tools">
+    <h2 class="section-title">Tools I build</h2>
+    <p class="lede small">
+      Open source, offline-first, and made to be read. More are on the way.
+    </p>
+
+    <div class="tool-grid">
+      ${TOOLS.map((tool, i) => `
+        <article class="tool-card">
+          <div class="tool-card-head">
+            <span class="tool-card-mark">${LOGO(30)}</span>
+            <div>
+              <h3>${esc(tool.name)}</h3>
+              <span class="tool-card-status">${esc(tool.status)} · MIT</span>
+            </div>
+          </div>
+          <p class="tool-card-tagline">${esc(tool.tagline)}</p>
+          <ul class="tool-card-list">
+            ${tool.features.map((f) => `
+              <li>
+                <span class="li-icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24">${ICONS[f.icon] ?? ''}</svg>
+                </span>
+                ${esc(f.title)}
+              </li>`).join('')}
+          </ul>
+          <div class="tool-card-foot">
+            <a class="btn btn-primary btn-sm" href="#download">Download</a>
+            <a class="btn btn-sm" href="how-it-works.html">How it works</a>
+            <a class="btn btn-sm" href="${esc(tool.repo)}">Source</a>
+          </div>
+        </article>`).join('')}
+
+      <article class="tool-card tool-card-next">
+        <div class="next-mark" aria-hidden="true">+</div>
+        <h3>More coming</h3>
+        <p>
+          Other tools are in progress. They will appear here as they are released, with the same
+          rule: they run on your machine and keep your data there.
+        </p>
+      </article>
+    </div>
   </section>
 
   <section class="wrap download" id="download">
-    <h3 class="sub">Download</h3>
     <h2 class="section-title">Get API Devkit</h2>
     <p class="lede small">
       Free and open source. Nothing to sign up for, and it works with no network at all.
@@ -271,69 +337,31 @@ const body = `
         <span class="dl-icon" aria-hidden="true">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M16.1 12.6c0-2.2 1.8-3.3 1.9-3.3-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.7.8-3.4.8-.7 0-1.8-.8-2.9-.8-1.5 0-2.9.9-3.6 2.2-1.6 2.7-.4 6.7 1.1 8.9.7 1.1 1.6 2.3 2.7 2.2 1.1 0 1.5-.7 2.8-.7 1.3 0 1.6.7 2.8.7 1.2 0 1.9-1.1 2.6-2.1.8-1.2 1.2-2.4 1.2-2.5-.1 0-2.2-.9-2.2-3.4ZM14 5.9c.6-.7 1-1.7.9-2.7-.9 0-2 .6-2.6 1.3-.6.6-1 1.6-.9 2.6 1 .1 2-.5 2.6-1.2Z"/></svg>
         </span>
-        <span class="dl-text">
-          <strong>macOS</strong>
-          <small>Apple silicon &amp; Intel · .dmg</small>
-        </span>
+        <span class="dl-text"><strong>macOS</strong><small>Apple silicon &amp; Intel · .dmg</small></span>
       </a>
 
       <a class="dl" href="${esc(RELEASES)}" data-os="windows">
         <span class="dl-icon" aria-hidden="true">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.6 10.2 4.6v7H3v-6ZM11.3 4.4 21 3v8.6h-9.7v-7.2ZM3 12.4h7.2v7L3 18.4v-6ZM11.3 12.4H21V21l-9.7-1.4v-7.2Z"/></svg>
         </span>
-        <span class="dl-text">
-          <strong>Windows</strong>
-          <small>x64 &amp; ARM · installer</small>
-        </span>
+        <span class="dl-text"><strong>Windows</strong><small>x64 &amp; ARM · installer</small></span>
       </a>
 
-      <a class="dl" href="${esc(REPO)}#getting-started" data-os="linux">
-        <span class="dl-icon" aria-hidden="true">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3M8 9l-2 3 2 3M16 9l2 3-2 3M13 8l-2 8"/></svg>
-        </span>
-        <span class="dl-text">
-          <strong>Build from source</strong>
-          <small>Linux, or any platform</small>
-        </span>
-      </a>
     </div>
 
-    <p class="dl-note" id="dl-note">
-      Builds are published on the
-      <a href="${esc(RELEASES)}">releases page</a>. Until the first release is uploaded, use
-      <code>npm run dist</code> to produce an installer for the machine you are on.
-      macOS and Windows builds are currently unsigned, so the OS will ask you to confirm the
-      first launch.
+    <p class="dl-note">
+      Builds are published on the <a href="${esc(RELEASES)}">releases page</a>. Until the first one
+      is uploaded, <code>npm run dist</code> produces an installer for the machine you are on.
+      Builds are unsigned for now, so the system will ask you to confirm the first launch.
     </p>
-  </section>
-
-  <section class="wrap about" id="about">
-    <h3 class="sub">About</h3>
-    <div class="about-grid">
-      <div class="about-photo">
-        <img src="${esc(AVATAR)}" alt="${esc(AUTHOR)}" width="150" height="150"
-             loading="lazy" onerror="this.closest('.about-photo').classList.add('no-photo')">
-        <span class="about-initials" aria-hidden="true">AS</span>
-      </div>
-      <div class="about-copy">
-        <h2 class="section-title">${esc(AUTHOR)}</h2>
-        ${ABOUT.map((p) => `<p>${esc(p)}</p>`).join('')}
-        <div class="cta">
-          <a class="btn btn-primary" href="${esc(PORTAL)}">crafillio.com</a>
-          <a class="btn" href="${esc(GH_USER)}">GitHub</a>
-        </div>
-      </div>
-    </div>
   </section>
 </main>
 
 <script>
   // Nudge toward the build that matches the machine, without hiding the others.
   (function () {
-    var p = navigator.userAgentData && navigator.userAgentData.platform
-      ? navigator.userAgentData.platform
-      : navigator.platform || '';
-    var os = /mac/i.test(p) ? 'mac' : /win/i.test(p) ? 'windows' : /linux/i.test(p) ? 'linux' : null;
+    var p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+    var os = /mac/i.test(p) ? 'mac' : /win/i.test(p) ? 'windows' : null;
     if (!os) return;
     var el = document.querySelector('.dl[data-os="' + os + '"]');
     if (el) el.classList.add('suggested');
@@ -342,7 +370,7 @@ const body = `
 
 <footer>
   <div class="wrap footer-inner">
-    <span>© ${new Date().getFullYear()} ${esc(AUTHOR)} · MIT licensed</span>
+    <span>© ${new Date().getFullYear()} ${esc(AUTHOR)} · Made by a developer, for developers, with <span class="heart">&hearts;</span></span>
     <span class="footer-links">
       <a href="${esc(GH_USER)}">GitHub</a>
       <a href="${esc(PORTAL)}">crafillio.com</a>
@@ -415,58 +443,56 @@ nav{display:flex;gap:20px;font-size:14.5px}
 nav a{color:var(--muted);text-decoration:none}
 nav a:hover{color:var(--brand)}
 
-/* Hero */
-.hero{padding:96px 0 68px;position:relative;overflow:hidden}
-.hero:before{content:'';position:absolute;inset:-40% 55% 40% -10%;background:var(--brand-soft);filter:blur(90px);pointer-events:none}
-.eyebrow{font-family:var(--display);font-size:12px;font-weight:650;letter-spacing:.16em;text-transform:uppercase;color:var(--brand);margin-bottom:18px}
-h1{font-family:var(--display);font-size:clamp(38px,6vw,62px);font-weight:650;letter-spacing:-.035em;line-height:1.04;margin-bottom:22px;text-wrap:balance}
-h1 em{font-style:normal;color:var(--brand)}
-.lede{font-size:18.5px;color:var(--muted);max-width:60ch}
-.lede.small{font-size:16px}
-.cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}
+/* Intro */
+.intro{padding:64px 0 52px;position:relative}
+.intro:before{content:'';position:absolute;inset:-30% 60% 55% -10%;background:var(--brand-soft);filter:blur(90px);pointer-events:none}
+.intro-grid{display:grid;grid-template-columns:auto 1fr;gap:34px;align-items:start;position:relative}
+.intro-photo{position:relative;width:120px;height:120px;border-radius:24px;overflow:hidden;background:var(--surface-2);border:1px solid var(--border);display:grid;place-items:center;box-shadow:var(--shadow-lg)}
+.intro-photo img{width:100%;height:100%;object-fit:cover;display:block;position:relative;z-index:1}
+.intro-initials{position:absolute;font-family:var(--display);font-size:38px;font-weight:650;color:var(--brand);z-index:0}
+.intro-photo.no-photo img{display:none}
+h1{font-family:var(--display);font-size:clamp(32px,5vw,46px);font-weight:650;letter-spacing:-.03em;line-height:1.06;margin-bottom:8px;text-wrap:balance}
+.role{color:var(--brand);font-size:16px;font-weight:550;margin-bottom:18px}
+.intro-copy{color:var(--muted);max-width:62ch;margin-bottom:12px;font-size:16.5px}
+.lede{font-size:17px;color:var(--muted);max-width:62ch}
+.lede.small{font-size:15.5px}
+.cta{display:flex;gap:11px;flex-wrap:wrap;margin-top:24px}
 
-.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:10px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);text-decoration:none;font-weight:550;font-size:15px;box-shadow:var(--shadow);transition:transform .12s,border-color .12s}
+.stack{margin-top:22px;display:flex;flex-direction:column;gap:9px}
+.stack-row{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.stack-label{font-family:var(--display);font-size:11px;font-weight:650;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);min-width:74px}
+.stack-items{display:flex;gap:7px;flex-wrap:wrap}
+.chip{padding:3px 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface);font-family:var(--mono);font-size:12px;color:var(--muted)}
+.stack-more{font-size:13.5px;color:var(--dim);margin-top:2px;padding-left:86px}
+
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);text-decoration:none;font-weight:550;font-size:15px;box-shadow:var(--shadow);transition:transform .12s,border-color .12s}
 .btn:hover{transform:translateY(-1px);border-color:var(--brand)}
 .btn-primary{background:var(--brand-fill);border-color:var(--brand-fill);color:#fff}
 .btn-primary:hover{filter:brightness(1.07)}
+.btn-sm{padding:7px 13px;font-size:13.5px}
 
-/* Tool */
-.tool{padding:56px 0;border-top:1px solid var(--border)}
-.tool-head{display:flex;gap:20px;align-items:flex-start;margin-bottom:20px}
-.tool-mark{color:var(--brand);flex-shrink:0;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);display:flex}
-.tool-status{font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-bottom:4px}
-.tool h2{font-family:var(--display);font-size:clamp(28px,4vw,38px);font-weight:650;letter-spacing:-.025em;line-height:1.1}
-.tool-tagline{color:var(--brand);font-size:16.5px;margin-top:6px;font-weight:520}
-.tool-blurb{color:var(--muted);max-width:70ch;margin-bottom:22px}
+/* Tools */
+.tools-section{padding:52px 0;border-top:1px solid var(--border)}
+.section-title{font-family:var(--display);font-size:clamp(24px,3.4vw,32px);font-weight:650;letter-spacing:-.025em;margin-bottom:10px}
+.tool-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:28px}
+.tool-card{padding:24px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);border-top:3px solid var(--brand);display:flex;flex-direction:column}
+.tool-card-head{display:flex;gap:13px;align-items:center;margin-bottom:12px}
+.tool-card-mark{color:var(--brand);display:flex;flex-shrink:0}
+.tool-card h3{font-family:var(--display);font-size:20px;font-weight:650;letter-spacing:-.02em}
+.tool-card-status{font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+.tool-card-tagline{color:var(--muted);font-size:15px;margin-bottom:16px}
+.tool-card-list{list-style:none;display:flex;flex-direction:column;gap:9px;margin-bottom:20px}
+.tool-card-list li{display:flex;align-items:center;gap:10px;font-size:14.5px;color:var(--text)}
+.li-icon{display:inline-flex;padding:5px;border-radius:8px;background:var(--brand-soft);color:var(--brand);flex-shrink:0}
+.tool-card-foot{display:flex;gap:9px;flex-wrap:wrap;margin-top:auto}
 
-.tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:34px}
-.tag{padding:4px 12px;border:1px solid var(--border);border-radius:999px;background:var(--surface);font-family:var(--mono);font-size:12px;color:var(--muted)}
-.tag-link{color:var(--brand);border-color:var(--brand);text-decoration:none}
-
-.proof{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:44px}
-.proof-item{padding:18px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow)}
-.proof-figure{font-family:var(--display);font-size:34px;font-weight:650;letter-spacing:-.03em;color:var(--brand);line-height:1;font-variant-numeric:tabular-nums}
-.proof-label{font-size:14px;font-weight:550;margin-top:6px}
-.proof-note{font-size:12.5px;color:var(--dim);margin-top:2px;line-height:1.45}
-
-.sub{font-family:var(--display);font-size:13px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:18px}
-
-.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px;margin-bottom:44px}
-.feature{padding:22px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);border-top:3px solid var(--brand)}
-.feature-icon{display:inline-flex;padding:8px;border-radius:10px;background:var(--brand-soft);color:var(--brand);margin-bottom:12px}
-.feature h4{font-family:var(--display);font-size:17px;font-weight:620;letter-spacing:-.015em;margin-bottom:9px}
-.feature p{font-size:14.5px;color:var(--muted);line-height:1.6}
-
-.principles{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:36px}
-.principle{padding:16px 18px;background:var(--surface-2);border-radius:12px;border-left:3px solid var(--accent2)}
-.principle dt{font-family:var(--display);font-weight:620;font-size:15px;margin-bottom:5px}
-.principle dd{font-size:14px;color:var(--muted);line-height:1.55}
-
-.closing{padding:56px 0;border-top:1px solid var(--border)}
+.tool-card-next{border-top-color:var(--border-strong);border-style:dashed;align-items:flex-start;justify-content:center;text-align:left;color:var(--muted)}
+.next-mark{font-family:var(--display);font-size:34px;font-weight:650;color:var(--border-strong);line-height:1;margin-bottom:10px}
+.tool-card-next h3{margin-bottom:8px;color:var(--dim)}
+.tool-card-next p{font-size:14.5px;line-height:1.6}
 
 /* Downloads */
-.download,.about{padding:56px 0;border-top:1px solid var(--border)}
-.section-title{font-family:var(--display);font-size:clamp(26px,3.6vw,34px);font-weight:650;letter-spacing:-.025em;margin-bottom:12px}
+.download{padding:52px 0;border-top:1px solid var(--border)}
 .dl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:26px 0 18px}
 .dl{display:flex;align-items:center;gap:14px;padding:18px 20px;background:var(--surface);border:1px solid var(--border);border-radius:14px;text-decoration:none;color:var(--text);box-shadow:var(--shadow);transition:transform .12s,border-color .12s}
 .dl:hover{transform:translateY(-2px);border-color:var(--brand)}
@@ -479,13 +505,6 @@ h1 em{font-style:normal;color:var(--brand)}
 .dl-note code{background:var(--surface-2);padding:2px 6px;border-radius:5px;font-size:13px}
 
 /* About */
-.about-grid{display:grid;grid-template-columns:auto 1fr;gap:34px;align-items:start;margin-top:8px}
-.about-photo{position:relative;width:150px;height:150px;border-radius:20px;overflow:hidden;background:var(--surface-2);border:1px solid var(--border);flex-shrink:0;display:grid;place-items:center}
-.about-photo img{width:100%;height:100%;object-fit:cover;display:block;position:relative;z-index:1}
-.about-initials{position:absolute;font-family:var(--display);font-size:44px;font-weight:650;color:var(--brand);z-index:0}
-.about-photo.no-photo img{display:none}
-.about-copy p{color:var(--muted);margin-bottom:14px;max-width:64ch}
-
 /* How it works */
 .hero-doc{padding:80px 0 44px}
 .steps{padding:20px 0 40px}
@@ -514,8 +533,12 @@ footer{border-top:1px solid var(--border);padding:28px 0;margin-top:20px}
 footer a{color:var(--muted);text-decoration:none}
 footer a:hover{color:var(--brand)}
 
+footer .heart{color:var(--brand)}
+
 @media (max-width:760px){
-  .tool-head{flex-direction:column;gap:14px}
+  .intro-grid{grid-template-columns:1fr;gap:22px}
+  .stack-row{flex-direction:column;gap:6px}
+  .stack-more{padding-left:0}
   nav{gap:13px;font-size:13px;flex-wrap:wrap;justify-content:flex-end}
   .about-grid{grid-template-columns:1fr;gap:20px}
 }

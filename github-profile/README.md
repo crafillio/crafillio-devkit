@@ -4,7 +4,10 @@
 
 # Amit Singh
 
-**I build developer tools that run on your machine and keep your data there.**
+**Full-stack developer · Open-source professional**
+
+I work across the stack — services, data and the interfaces on top of them — and I build
+developer tools that run on your machine and keep your data there.
 
 [![Portal](https://img.shields.io/badge/crafillio.com-e4007f?style=flat-square&logo=safari&logoColor=white)](https://crafillio.com)
 [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/crafillio)
@@ -54,7 +57,27 @@ environment variables and one collection format — and never sends your data an
 | **Honest numbers** | A 4xx counts as a failure in a load test — reporting it as success would hide a broken target |
 | **No silent failure** | An undefined variable is reported, never replaced with an empty string |
 
-### Built with
+### My stack
+
+**Languages** ![Java](https://img.shields.io/badge/Java-ED8B00?style=flat-square&logo=openjdk&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+
+**Frontend** ![Angular](https://img.shields.io/badge/Angular-DD0031?style=flat-square&logo=angular&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB)
+![Electron](https://img.shields.io/badge/Electron-2B2E3A?style=flat-square&logo=electron&logoColor=9FEAF9)
+
+**Data** ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Oracle](https://img.shields.io/badge/Oracle-F80000?style=flat-square&logo=oracle&logoColor=white)
+![Neo4j](https://img.shields.io/badge/Neo4j-4581C3?style=flat-square&logo=neo4j&logoColor=white)
+
+**Platform** ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=flat-square&logo=kubernetes&logoColor=white)
+![Camunda](https://img.shields.io/badge/Camunda-FC5D0D?style=flat-square&logo=camunda&logoColor=white)
+
+…and whatever the problem needs.
+
+### API Devkit is built with
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB)
@@ -91,6 +114,6 @@ environment variables and one collection format — and never sends your data an
 
 <div align="center">
 
-<sub>Everything here is open source. Issues and pull requests welcome.</sub>
+<sub>Made by a developer, for developers, with ♥ · Everything here is open source.</sub>
 
 </div>
