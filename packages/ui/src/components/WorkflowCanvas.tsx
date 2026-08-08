@@ -27,13 +27,35 @@ interface Props {
   onInspect: (stepId: string) => void;
 }
 
-/** Lays out any node that has never been positioned, so nothing stacks at 0,0. */
-function withPositions(steps: WorkflowStep[]): WorkflowStep[] {
-  return steps.map((step, index) =>
-    step.position
-      ? step
-      : { ...step, position: { x: 60 + index * (NODE_W + 70), y: 70 + (index % 2) * 40 } },
-  );
+const COL_W = NODE_W + 70;
+const ROW_H = NODE_H + 70;
+
+/**
+ * Places any node that has never been positioned.
+ *
+ * Laying them out in one long row pushed the fourth node past the right edge
+ * of the canvas, where it was invisible — it looked as though "Add step" had
+ * stopped working. Placement now wraps to however many columns actually fit.
+ */
+function withPositions(steps: WorkflowStep[], canvasWidth: number): WorkflowStep[] {
+  const columns = Math.max(1, Math.floor((canvasWidth - 60) / COL_W));
+
+  // Continue below whatever is already placed, so new nodes never land on top
+  // of ones the user has arranged by hand.
+  const placed = steps.filter((s) => s.position);
+  const startRow = placed.length
+    ? Math.floor(Math.max(...placed.map((s) => s.position!.y)) / ROW_H) + 1
+    : 0;
+
+  let slot = 0;
+  return steps.map((step) => {
+    if (step.position) return step;
+    const index = placed.length === 0 ? slot : slot;
+    const row = (placed.length === 0 ? 0 : startRow) + Math.floor(index / columns);
+    const column = index % columns;
+    slot += 1;
+    return { ...step, position: { x: 60 + column * COL_W, y: 60 + row * ROW_H } };
+  });
 }
 
 export function WorkflowCanvas({
@@ -53,7 +75,23 @@ export function WorkflowCanvas({
   const [linking, setLinking] = useState<{ from: string; x: number; y: number } | null>(null);
   const [hoverPort, setHoverPort] = useState<string | null>(null);
 
-  const steps = useMemo(() => withPositions(workflow.steps), [workflow.steps]);
+  // Placement depends on how much room there actually is.
+  const [canvasWidth, setCanvasWidth] = useState(900);
+  useEffect(() => {
+    const element = surfaceRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setCanvasWidth(entry.contentRect.width);
+    });
+    observer.observe(element);
+    setCanvasWidth(element.clientWidth);
+    return () => observer.disconnect();
+  }, []);
+
+  const steps = useMemo(
+    () => withPositions(workflow.steps, canvasWidth),
+    [workflow.steps, canvasWidth],
+  );
   const edges = workflow.edges ?? [];
 
   // Persist any positions we had to invent, so the layout is stable next time.
@@ -61,7 +99,25 @@ export function WorkflowCanvas({
     if (workflow.steps.some((s) => !s.position)) onChange({ steps });
     // Runs only when a step genuinely lacks a position.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workflow.steps.length]);
+  }, [workflow.steps.length, canvasWidth]);
+
+  // Scroll the most recently added node into view — adding something you
+  // cannot see reads as nothing having happened.
+  const lastCount = useRef(workflow.steps.length);
+  useEffect(() => {
+    if (workflow.steps.length > lastCount.current) {
+      const added = steps[steps.length - 1];
+      const surface = surfaceRef.current;
+      if (added?.position && surface) {
+        surface.scrollTo({
+          left: Math.max(0, added.position.x + NODE_W + 60 - surface.clientWidth),
+          top: Math.max(0, added.position.y + NODE_H + 60 - surface.clientHeight),
+          behavior: 'smooth',
+        });
+      }
+    }
+    lastCount.current = workflow.steps.length;
+  }, [workflow.steps.length, steps]);
 
   const positionOf = useCallback(
     (stepId: string) => steps.find((s) => s.id === stepId)?.position ?? { x: 0, y: 0 },

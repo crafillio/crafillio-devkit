@@ -204,9 +204,11 @@ export interface CrafillioApi {
     cancel(runId: string): Promise<void>;
     onEvent(listener: (event: WorkflowEvent) => void): () => void;
     /** Writes the HTML report and returns its path. Null when cancelled. */
-    exportReport(result: RunResult): Promise<string | null>;
+    exportReport(result: RunResult, workflow?: Workflow): Promise<string | null>;
+    /** Renders the report to PDF via the print engine. Null when cancelled. */
+    exportPdf(result: RunResult, workflow?: Workflow): Promise<string | null>;
     /** Opens a finished report in the system browser. */
-    openReport(result: RunResult): Promise<string>;
+    openReport(result: RunResult, workflow?: Workflow): Promise<string>;
   };
 
   /** Import and export in formats other tools speak. */

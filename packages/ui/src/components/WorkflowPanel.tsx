@@ -41,6 +41,7 @@ import { askConfirm, askName } from '../state/dialogs';
  */
 export function WorkflowPanel() {
   const toast = useStore((s) => s.toast);
+  const activeWorkflowId = useStore((s) => s.activeWorkflowId);
 
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [current, setCurrent] = useState<Workflow | null>(null);
@@ -70,6 +71,23 @@ export function WorkflowPanel() {
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [refresh]);
+
+  // The sidebar can point this panel at a specific workflow.
+  useEffect(() => {
+    if (!activeWorkflowId) return;
+    void (async () => {
+      const list = await window.crafillio.workflow.list();
+      setWorkflows(list);
+      const target = list.find((w) => w.id === activeWorkflowId);
+      if (target) {
+        setCurrent(target);
+        setDirty(false);
+        setRecords(new Map());
+        setResult(null);
+        setSelectedStepId(null);
+      }
+    })();
+  }, [activeWorkflowId]);
 
   /* Live stage events. */
   useEffect(() => {
@@ -256,7 +274,7 @@ export function WorkflowPanel() {
             <button
               className="btn btn-sm"
               onClick={async () => {
-                const path = await window.crafillio.workflow.exportReport(result);
+                const path = await window.crafillio.workflow.exportReport(result, current);
                 if (path) toast('success', `Report saved to ${path}`);
               }}
             >
@@ -264,7 +282,20 @@ export function WorkflowPanel() {
             </button>
             <button
               className="btn btn-sm"
-              onClick={() => void window.crafillio.workflow.openReport(result)}
+              onClick={async () => {
+                try {
+                  const path = await window.crafillio.workflow.exportPdf(result, current);
+                  if (path) toast('success', `PDF saved to ${path}`);
+                } catch (err) {
+                  toast('error', (err as Error).message);
+                }
+              }}
+            >
+              <FileDown size={13} /> Export PDF
+            </button>
+            <button
+              className="btn btn-sm"
+              onClick={() => void window.crafillio.workflow.openReport(result, current)}
             >
               Open report
             </button>
@@ -405,8 +436,42 @@ function StepEditor({
   onRemove: () => void;
 }) {
   const [tab, setTab] = useState<'request' | 'inputs' | 'outputs'>('request');
+  const urlRef = useRef<HTMLInputElement>(null);
   // Only earlier steps can be referenced — a later one has not run yet.
   const earlier = allSteps.slice(0, allSteps.findIndex((s) => s.id === step.id));
+
+  /**
+   * Everything this step can reference: outputs published by upstream steps,
+   * plus its own inputs. Listing them makes chaining discoverable — otherwise
+   * you have to remember the name you typed three nodes ago.
+   */
+  const available = [
+    ...earlier.flatMap((s) =>
+      s.outputs
+        .filter((o) => o.name.trim())
+        .map((o) => ({ name: o.name, from: s.name })),
+    ),
+    ...step.inputs.filter((i) => i.name.trim()).map((i) => ({ name: i.name, from: 'this step' })),
+  ];
+
+  /** Inserts {{name}} into the URL at the caret, not just at the end. */
+  const insertVariable = (name: string): void => {
+    const token = `{{${name}}}`;
+    const input = urlRef.current;
+    if (!input) {
+      setRequest({ url: step.request.url + token });
+      return;
+    }
+    const start = input.selectionStart ?? step.request.url.length;
+    const end = input.selectionEnd ?? start;
+    const next = step.request.url.slice(0, start) + token + step.request.url.slice(end);
+    setRequest({ url: next });
+    // Put the caret after what we inserted, so typing continues naturally.
+    requestAnimationFrame(() => {
+      input.focus();
+      input.setSelectionRange(start + token.length, start + token.length);
+    });
+  };
 
   const setRequest = (next: Partial<WorkflowStep['request']>): void =>
     onChange({ request: { ...step.request, ...next } });
@@ -447,6 +512,7 @@ function StepEditor({
           ))}
         </select>
         <input
+          ref={urlRef}
           className="input url"
           value={step.request.url}
           placeholder="https://api.example.com/orders/{{orderId}}"
@@ -454,6 +520,23 @@ function StepEditor({
           onChange={(e) => setRequest({ url: e.target.value })}
         />
       </div>
+
+      {available.length > 0 && (
+        <div className="wf-vars">
+          <span className="wf-vars-label">Available here</span>
+          {available.map((v) => (
+            <button
+              key={v.name}
+              className="wf-var"
+              onClick={() => insertVariable(v.name)}
+              title={`From ${v.from} — click to insert into the URL`}
+            >
+              {`{{${v.name}}}`}
+            </button>
+          ))}
+          <span className="wf-vars-hint">click to insert · also works in headers and body</span>
+        </div>
+      )}
 
       <div className="subtabs">
         <button

@@ -81,6 +81,10 @@ interface State {
 
   toasts: Toast[];
 
+  /** Workflow the sidebar has asked the workflow tab to show. */
+  activeWorkflowId: string | null;
+  openWorkflow(id: string): void;
+
   /* Tabs */
   newTab(protocol: TabKind): void;
   openSaved(collection: Collection, request: SavedRequest): void;
@@ -141,6 +145,17 @@ export const useStore = create<State>((set, get) => ({
   connections: [],
   settings: null,
   toasts: [],
+  activeWorkflowId: null,
+
+  openWorkflow(id) {
+    // Reuse an open workflow tab rather than stacking duplicates.
+    const existing = get().tabs.find((t) => t.protocol === 'workflow');
+    if (existing) set({ activeTabId: existing.id, activeWorkflowId: id });
+    else {
+      const tab = makeTab('workflow');
+      set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id, activeWorkflowId: id }));
+    }
+  },
 
   newTab(protocol) {
     const tab = makeTab(protocol, get().connections[0]?.id ?? '');

@@ -16,14 +16,15 @@ import {
   Search,
   Trash2,
   Upload,
+  Workflow as WorkflowIcon,
 } from 'lucide-react';
-import type { Collection, Folder, HistoryEntry, SavedRequest } from '@crafillio/core';
+import type { Collection, Folder, HistoryEntry, SavedRequest, Workflow } from '@crafillio/core';
 import { useStore } from '../state/store';
 import { askChoice, askConfirm, askName } from '../state/dialogs';
 import { formatDate } from '../lib/format';
 import { uid } from '../lib/defaults';
 
-type Section = 'collections' | 'history' | 's3';
+type Section = 'collections' | 'workflows' | 'history' | 's3';
 
 interface Props {
   onEditConnection: (id: string | null) => void;
@@ -43,6 +44,13 @@ export function Sidebar({ onEditConnection }: Props) {
           <Library size={14} />
         </button>
         <button
+          className={`sidebar-tab ${section === 'workflows' ? 'active' : ''}`}
+          onClick={() => setSection('workflows')}
+          title="Workflows"
+        >
+          <WorkflowIcon size={14} />
+        </button>
+        <button
           className={`sidebar-tab ${section === 'history' ? 'active' : ''}`}
           onClick={() => setSection('history')}
           title="History"
@@ -59,6 +67,7 @@ export function Sidebar({ onEditConnection }: Props) {
       </div>
 
       {section === 'collections' && <Collections />}
+      {section === 'workflows' && <Workflows />}
       {section === 'history' && <HistoryList />}
       {section === 's3' && <Connections onEdit={onEditConnection} />}
     </aside>
@@ -487,6 +496,153 @@ function RequestRow({
         </>
       )}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Workflows                                                           */
+/* ------------------------------------------------------------------ */
+
+function Workflows() {
+  const openWorkflow = useStore((s) => s.openWorkflow);
+  const activeWorkflowId = useStore((s) => s.activeWorkflowId);
+  const toast = useStore((s) => s.toast);
+
+  const [items, setItems] = useState<Workflow[]>([]);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const load = useCallback(async (): Promise<void> => {
+    setItems(await window.crafillio.workflow.list());
+  }, []);
+
+  useEffect(() => {
+    void load();
+    // Keeps the list current while the canvas is being edited elsewhere.
+    const timer = setInterval(load, 3000);
+    return () => clearInterval(timer);
+  }, [load]);
+
+  const create = async (): Promise<void> => {
+    const name = await askName({
+      title: 'New workflow',
+      label: 'Workflow name',
+      placeholder: 'Order pipeline',
+      defaultValue: 'New workflow',
+    });
+    if (!name) return;
+    const created = await window.crafillio.workflow.create(name);
+    await load();
+    openWorkflow(created.id);
+    toast('success', `Created "${name}"`);
+  };
+
+  return (
+    <>
+      <div className="sidebar-actions">
+        <button className="btn btn-sm" style={{ flex: 1 }} onClick={create}>
+          <Plus size={13} /> New workflow
+        </button>
+      </div>
+
+      <div className="sidebar-scroll">
+        {items.length === 0 && (
+          <div className="empty-note">
+            No workflows yet.
+            <br />
+            Chain requests together on a canvas.
+          </div>
+        )}
+
+        {items.map((workflow) => {
+          const open = expanded.has(workflow.id);
+          return (
+            <div key={workflow.id} className="collection-block">
+              <div
+                className={`collection-header ${activeWorkflowId === workflow.id ? 'current' : ''}`}
+                onClick={() => openWorkflow(workflow.id)}
+              >
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpanded((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(workflow.id)) next.delete(workflow.id);
+                      else next.add(workflow.id);
+                      return next;
+                    });
+                  }}
+                  style={{ display: 'flex' }}
+                >
+                  {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                </span>
+                <span style={{ flex: 1 }}>{workflow.name}</span>
+                <span className="collection-count">{workflow.steps.length}</span>
+                <span className="collection-tools" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="row-action"
+                    title="Rename"
+                    onClick={async () => {
+                      const name = await askName({
+                        title: 'Rename workflow',
+                        label: 'Workflow name',
+                        defaultValue: workflow.name,
+                        confirmLabel: 'Rename',
+                      });
+                      if (!name) return;
+                      await window.crafillio.workflow.save({ ...workflow, name });
+                      await load();
+                    }}
+                  >
+                    <Pencil size={12} />
+                  </button>
+                  <button
+                    className="row-action danger"
+                    title="Delete workflow"
+                    onClick={async () => {
+                      const ok = await askConfirm({
+                        title: 'Delete workflow',
+                        message: `Delete "${workflow.name}" and its ${workflow.steps.length} step(s)?`,
+                        confirmLabel: 'Delete',
+                        danger: true,
+                      });
+                      if (!ok) return;
+                      await window.crafillio.workflow.remove(workflow.id);
+                      await load();
+                    }}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </span>
+              </div>
+
+              {open &&
+                (workflow.steps.length === 0 ? (
+                  <div className="empty-note" style={{ padding: '8px 16px', textAlign: 'left' }}>
+                    No steps yet.
+                  </div>
+                ) : (
+                  workflow.steps.map((step, index) => (
+                    <div
+                      key={step.id}
+                      className="tree-row"
+                      style={{ paddingLeft: 22 }}
+                      onClick={() => openWorkflow(workflow.id)}
+                    >
+                      <span className={`method-chip m-${step.request.method}`}>
+                        {step.request.method}
+                      </span>
+                      <span className="row-label">
+                        {index + 1}. {step.name}
+                        <div className="row-sub">{step.request.url || 'no URL yet'}</div>
+                      </span>
+                    </div>
+                  ))
+                ))}
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 

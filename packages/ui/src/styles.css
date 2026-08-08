@@ -1803,3 +1803,45 @@ kbd {
 }
 
 @media (max-width: 1200px) { .wf-body { grid-template-columns: 1fr 320px; } }
+
+/* Variable palette in the workflow step editor */
+.wf-vars {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 13px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  flex-wrap: wrap;
+}
+
+.wf-vars-label {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-dim);
+}
+
+.wf-var {
+  padding: 2px 8px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: background var(--fast) var(--ease);
+}
+
+.wf-var:hover { background: var(--accent); color: var(--on-accent); }
+.wf-vars-hint { font-size: 10.5px; color: var(--text-dim); margin-left: auto; }
+
+/* Sidebar: the workflow currently open in the canvas */
+.collection-header.current {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}

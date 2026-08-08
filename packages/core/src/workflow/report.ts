@@ -7,7 +7,7 @@
  * attach to a ticket, or archive alongside a release.
  */
 
-import type { RunResult, StepRecord, StepStatus } from './types.js';
+import type { RunResult, StepRecord, StepStatus, Workflow } from './types.js';
 
 const esc = (value: unknown): string =>
   String(value ?? '')
@@ -60,10 +60,117 @@ function prettyBody(record: StepRecord): string {
 /* ------------------------------------------------------------------ */
 
 /**
- * Vertical flow diagram. Drawn as inline SVG rather than a chart library so
- * the report stays a single self-contained file.
+ * The workflow exactly as it was drawn.
+ *
+ * When the workflow carries canvas positions we reproduce that layout —
+ * same coordinates, same wires — so the document matches what the author
+ * built rather than a re-derived diagram. Workflows with no positions (built
+ * before the visual editor) fall back to a vertical flow.
  */
-function diagram(result: RunResult): string {
+function diagram(result: RunResult, workflow?: Workflow): string {
+  const positioned = workflow?.steps.filter((s) => s.position) ?? [];
+  const useCanvas = positioned.length === workflow?.steps.length && positioned.length > 0;
+  return useCanvas ? canvasDiagram(result, workflow!) : flowDiagram(result);
+}
+
+const NODE_W = 210;
+const NODE_H = 76;
+
+const STATUS_VAR: Record<StepStatus, string> = {
+  success: 'var(--ok)',
+  failed: 'var(--bad)',
+  skipped: 'var(--dim)',
+  running: 'var(--brand)',
+  pending: 'var(--dim)',
+};
+
+/** Reproduces the canvas: absolute node positions joined by bezier wires. */
+function canvasDiagram(result: RunResult, workflow: Workflow): string {
+  const pad = 30;
+  const byId = new Map(result.steps.map((s) => [s.stepId, s]));
+
+  const minX = Math.min(...workflow.steps.map((s) => s.position!.x));
+  const minY = Math.min(...workflow.steps.map((s) => s.position!.y));
+  const width =
+    Math.max(...workflow.steps.map((s) => s.position!.x - minX)) + NODE_W + pad * 2;
+  const height =
+    Math.max(...workflow.steps.map((s) => s.position!.y - minY)) + NODE_H + pad * 2;
+
+  const at = (id: string): { x: number; y: number } => {
+    const step = workflow.steps.find((s) => s.id === id);
+    return step?.position
+      ? { x: step.position.x - minX + pad, y: step.position.y - minY + pad }
+      : { x: pad, y: pad };
+  };
+
+  const wires = (workflow.edges ?? [])
+    .map((edge) => {
+      const from = at(edge.from);
+      const to = at(edge.to);
+      const x1 = from.x + NODE_W;
+      const y1 = from.y + NODE_H / 2;
+      const x2 = to.x;
+      const y2 = to.y + NODE_H / 2;
+      const bend = Math.max(45, Math.abs(x2 - x1) * 0.45);
+
+      // Name the values that actually travelled along this wire.
+      const carried = (byId.get(edge.from)?.extractedOutputs ?? []).map((o) => o.name);
+      const label = carried.length
+        ? `<text x="${(x1 + x2) / 2}" y="${(y1 + y2) / 2 - 8}" class="edge-label"
+                 text-anchor="middle">${esc(carried.slice(0, 3).join(', '))}${
+                   carried.length > 3 ? '…' : ''
+                 }</text>`
+        : '';
+
+      return `<path d="M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}"
+                    class="edge" marker-end="url(#arrow)"/>${label}`;
+    })
+    .join('');
+
+  const nodes = workflow.steps
+    .map((step, i) => {
+      const record = byId.get(step.id);
+      const status: StepStatus = record?.status ?? 'pending';
+      const stroke = STATUS_VAR[status];
+      const p = at(step.id);
+      const sub = record?.response
+        ? `HTTP ${record.response.status} · ${formatMs(record.durationMs)}`
+        : STATUS_LABEL[status];
+
+      return `
+        <g>
+          <rect x="${p.x}" y="${p.y}" width="${NODE_W}" height="${NODE_H}" rx="10"
+                class="node" style="stroke:${stroke}"/>
+          <rect x="${p.x}" y="${p.y}" width="4" height="${NODE_H}" rx="2" style="fill:${stroke}"/>
+          <circle cx="${p.x + 20}" cy="${p.y + 21}" r="8" style="fill:${stroke}"/>
+          <text x="${p.x + 20}" y="${p.y + 25}" class="node-num" text-anchor="middle">${i + 1}</text>
+          <text x="${p.x + 35}" y="${p.y + 25}" class="node-title">${esc(
+            step.name.length > 20 ? `${step.name.slice(0, 20)}…` : step.name,
+          )}</text>
+          <text x="${p.x + 14}" y="${p.y + 45}" class="node-method">${esc(
+            step.request.method,
+          )}</text>
+          <text x="${p.x + 14}" y="${p.y + 63}" class="node-sub">${esc(sub)}</text>
+        </g>`;
+    })
+    .join('');
+
+  return `
+  <svg viewBox="0 0 ${width} ${height}" class="diagram" role="img"
+       aria-label="Workflow canvas">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+              orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" class="arrow-head"/>
+      </marker>
+    </defs>
+    ${wires}
+    ${nodes}
+  </svg>`;
+}
+
+/** Vertical fallback for workflows with no canvas coordinates. */
+function flowDiagram(result: RunResult): string {
   const boxW = 300;
   const boxH = 62;
   const gapY = 40;
@@ -72,20 +179,10 @@ function diagram(result: RunResult): string {
   const width = boxW + padX * 2 + 240;
   const height = result.steps.length * (boxH + gapY) - gapY + padY * 2;
 
-  const colour: Record<StepStatus, string> = {
-    success: 'var(--ok)',
-    failed: 'var(--bad)',
-    skipped: 'var(--dim)',
-    running: 'var(--brand)',
-    pending: 'var(--dim)',
-  };
-
   const nodes = result.steps
     .map((step, i) => {
       const y = padY + i * (boxH + gapY);
-      const stroke = colour[step.status];
-
-      // Data carried out of this step, annotated beside the connector.
+      const stroke = STATUS_VAR[step.status];
       const carried = step.extractedOutputs.map((o) => o.name).slice(0, 3);
       const carriedLabel = carried.length
         ? `<text x="${padX + boxW + 16}" y="${y + boxH + gapY / 2 + 4}" class="edge-label">${esc(
@@ -113,8 +210,6 @@ function diagram(result: RunResult): string {
             `${i + 1}. ${step.name}`,
           )}</text>
           <text x="${padX + 16}" y="${y + 44}" class="node-sub">${esc(statusText)}</text>
-          <text x="${padX + boxW - 14}" y="${y + 25}" class="node-status" text-anchor="end"
-                style="fill:${stroke}">${esc(STATUS_LABEL[step.status].toUpperCase())}</text>
         </g>
         ${connector}`;
     })
@@ -238,7 +333,7 @@ function stepCard(step: StepRecord): string {
 
 /* ------------------------------------------------------------------ */
 
-export function renderReport(result: RunResult): string {
+export function renderReport(result: RunResult, workflow?: Workflow): string {
   const counts = {
     success: result.steps.filter((s) => s.status === 'success').length,
     failed: result.steps.filter((s) => s.status === 'failed').length,
@@ -348,6 +443,13 @@ pre{background:var(--bg);border:1px solid var(--border);border-radius:8px;paddin
 .download strong{display:block;font-size:13.5px}
 .download small{color:var(--dim);font-size:11.5px;font-family:var(--mono)}
 
+h3{font-size:15px;font-weight:640;margin:26px 0 10px}
+.note{color:var(--muted);font-size:13px;margin-bottom:10px}
+td.r,th.r{text-align:right}
+.bar{display:inline-block;width:70px;height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-right:7px;vertical-align:middle}
+.bar i{display:block;height:100%;background:var(--brand)}
+.node-num{font-family:var(--sans);font-size:9.5px;font-weight:700;fill:#fff}
+.node-method{font-family:var(--mono);font-size:10px;font-weight:700;fill:var(--brand)}
 footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--border);color:var(--dim);font-size:12.5px}
 @media print{
   body{background:#fff}
@@ -380,7 +482,7 @@ footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--border);color
   </div>
 
   <h2>Flow</h2>
-  <div class="diagram-wrap">${diagram(result)}</div>
+  <div class="diagram-wrap">${diagram(result, workflow)}</div>
 
   ${
     allArtifacts.length
@@ -398,6 +500,104 @@ footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--border);color
       </a>`,
     )
     .join('')}</div>`
+      : ''
+  }
+
+  <h2>Technical summary</h2>
+
+  <h3>Execution</h3>
+  <div class="tbl"><table>
+    <tbody>
+      <tr><td class="k">Run identifier</td><td class="v">${esc(result.runId)}</td></tr>
+      <tr><td class="k">Workflow identifier</td><td class="v">${esc(result.workflowId)}</td></tr>
+      <tr><td class="k">Started</td><td class="v">${esc(result.startedAt)}</td></tr>
+      <tr><td class="k">Wall-clock duration</td><td class="v">${formatMs(result.durationMs)}</td></tr>
+      <tr><td class="k">Steps executed</td><td class="v">${result.steps.length} (${counts.success} succeeded, ${counts.failed} failed, ${counts.skipped} skipped)</td></tr>
+      <tr><td class="k">Execution order</td><td class="v">${esc(result.steps.map((s) => s.name).join('  →  '))}</td></tr>
+      <tr><td class="k">Total bytes received</td><td class="v">${formatBytes(
+        result.steps.reduce((n, s) => n + (s.response?.size ?? 0), 0),
+      )}</td></tr>
+      <tr><td class="k">Files produced</td><td class="v">${allArtifacts.length}</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Timing breakdown</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>#</th><th>Step</th><th>Method</th><th>Status</th><th class="r">Duration</th><th class="r">Share</th><th class="r">Bytes</th></tr></thead>
+    <tbody>
+      ${result.steps
+        .map((step) => {
+          const share = result.durationMs > 0 ? (step.durationMs / result.durationMs) * 100 : 0;
+          return `<tr>
+            <td class="k">${step.index + 1}</td>
+            <td>${esc(step.name)}</td>
+            <td class="v">${esc(step.request?.method ?? '—')}</td>
+            <td class="v">${step.response ? step.response.status : STATUS_LABEL[step.status]}</td>
+            <td class="v r">${formatMs(step.durationMs)}</td>
+            <td class="r"><span class="bar"><i style="width:${Math.min(100, share).toFixed(1)}%"></i></span>${share.toFixed(1)}%</td>
+            <td class="v r">${step.response ? formatBytes(step.response.size) : '—'}</td>
+          </tr>`;
+        })
+        .join('')}
+    </tbody>
+  </table></div>
+
+  <h3>Data flow</h3>
+  <p class="note">Every value that moved between steps, and where it was consumed.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Value</th><th>Produced by</th><th>Consumed by</th><th>Resolved to</th></tr></thead>
+    <tbody>
+      ${(() => {
+        const produced = new Map<string, { by: string; value: string }>();
+        for (const step of result.steps) {
+          for (const out of step.extractedOutputs) {
+            produced.set(out.name, { by: step.name, value: out.value });
+          }
+        }
+        const consumers = new Map<string, string[]>();
+        for (const step of result.steps) {
+          const body = `${step.request?.url ?? ''} ${step.request?.body ?? ''} ${(
+            step.request?.headers ?? []
+          )
+            .map(([k, v]) => `${k}${v}`)
+            .join('')}`;
+          for (const name of produced.keys()) {
+            // A produced value counts as consumed when its resolved text shows
+            // up in a later request.
+            const resolved = produced.get(name)!.value;
+            if (resolved && resolved.length > 1 && body.includes(resolved)) {
+              consumers.set(name, [...(consumers.get(name) ?? []), step.name]);
+            }
+          }
+        }
+        const rows = [...produced.entries()].map(
+          ([name, info]) => `<tr>
+            <td class="k">${esc(name)}</td>
+            <td>${esc(info.by)}</td>
+            <td>${esc((consumers.get(name) ?? []).filter((c) => c !== info.by).join(', ') || '—')}</td>
+            <td class="v">${esc(info.value)}</td>
+          </tr>`,
+        );
+        return rows.length ? rows.join('') : '<tr><td colspan="4" class="none">No values were passed between steps.</td></tr>';
+      })()}
+    </tbody>
+  </table></div>
+
+  ${
+    Object.keys(result.context).length
+      ? `<h3>Final variable context</h3>
+  <p class="note">Every name resolvable at the end of the run, including environment variables.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Name</th><th>Value</th></tr></thead>
+    <tbody>${Object.entries(result.context)
+      .map(
+        ([k, v]) =>
+          `<tr><td class="k">${esc(k)}</td><td class="v">${esc(
+            v.length > 300 ? `${v.slice(0, 300)}…` : v,
+          )}</td></tr>`,
+      )
+      .join('')}</tbody>
+  </table></div>`
       : ''
   }
 

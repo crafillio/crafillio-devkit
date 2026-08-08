@@ -336,6 +336,7 @@ export function installMockBridge(): void {
       cancel: async () => {},
       onEvent: () => () => {},
       exportReport: async () => null,
+      exportPdf: async () => null,
       openReport: async () => '/tmp/report.html',
     },
 

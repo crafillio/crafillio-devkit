@@ -397,7 +397,7 @@ function registerHandlers(): void {
     activeWorkflowRuns.get(runId)?.cancel();
   });
 
-  handle('workflow:exportReport', async (result: Parameters<typeof renderReport>[0]) => {
+  handle('workflow:exportReport', async (result: Parameters<typeof renderReport>[0], workflow?: Parameters<typeof renderReport>[1]) => {
     const stamp = new Date(result.startedAt).toISOString().slice(0, 19).replace(/[:T]/g, '-');
     const slug = result.workflowName.replace(/[^\w.-]+/g, '-').toLowerCase();
     const dialogResult = await dialog.showSaveDialog({
@@ -405,14 +405,52 @@ function registerHandlers(): void {
       filters: [{ name: 'HTML report', extensions: ['html'] }],
     });
     if (dialogResult.canceled || !dialogResult.filePath) return null;
-    await writeFile(dialogResult.filePath, renderReport(result), 'utf8');
+    await writeFile(dialogResult.filePath, renderReport(result, workflow), 'utf8');
     return dialogResult.filePath;
   });
 
-  handle('workflow:openReport', async (result: Parameters<typeof renderReport>[0]) => {
+  handle(
+    'workflow:exportPdf',
+    async (result: Parameters<typeof renderReport>[0], workflow?: Parameters<typeof renderReport>[1]) => {
+      const stamp = new Date(result.startedAt).toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      const slug = result.workflowName.replace(/[^\w.-]+/g, '-').toLowerCase();
+      const dialogResult = await dialog.showSaveDialog({
+        defaultPath: `${slug}-${stamp}.pdf`,
+        filters: [{ name: 'PDF document', extensions: ['pdf'] }],
+      });
+      if (dialogResult.canceled || !dialogResult.filePath) return null;
+
+      // Rendered in an offscreen window and printed with Chromium's own engine,
+      // so the PDF matches the HTML exactly and needs no extra dependency.
+      const printer = new BrowserWindow({
+        show: false,
+        webPreferences: { offscreen: true, javascript: false },
+      });
+
+      try {
+        const html = renderReport(result, workflow);
+        await printer.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+        // Give web fonts and layout a moment before snapshotting the page.
+        await new Promise((resolve) => setTimeout(resolve, 350));
+
+        const pdf = await printer.webContents.printToPDF({
+          printBackground: true,
+          pageSize: 'A4',
+          margins: { top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 },
+          preferCSSPageSize: false,
+        });
+        await writeFile(dialogResult.filePath, pdf);
+        return dialogResult.filePath;
+      } finally {
+        printer.destroy();
+      }
+    },
+  );
+
+  handle('workflow:openReport', async (result: Parameters<typeof renderReport>[0], workflow?: Parameters<typeof renderReport>[1]) => {
     // Written beside the app's data so the browser can open it from disk.
     const path = join(CRAFILLIO_HOME, `report-${result.runId.slice(0, 8)}.html`);
-    await writeFile(path, renderReport(result), 'utf8');
+    await writeFile(path, renderReport(result, workflow), 'utf8');
     await shell.openPath(path);
     return path;
   });

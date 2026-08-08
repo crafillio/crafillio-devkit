@@ -111,6 +111,7 @@ const api: CrafillioApi = {
     cancel: call('workflow:cancel'),
     onEvent: (listener) => subscribe('workflow:event', listener as never),
     exportReport: call('workflow:exportReport'),
+    exportPdf: call('workflow:exportPdf'),
     openReport: call('workflow:openReport'),
   },
 
