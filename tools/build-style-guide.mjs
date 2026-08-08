@@ -16,7 +16,18 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const cssPath = join(root, 'packages/ui/src/styles.css');
-const outPath = join(root, 'docs/style-guide.html');
+
+/*
+ * `--artifact` emits a body fragment instead of a whole document: the Artifact
+ * host supplies <html>/<head>/<body>, and the viewer's own theme control
+ * stamps data-theme on the root element. In that mode the tokens are keyed off
+ * prefers-color-scheme first so the page opens in the viewer's scheme rather
+ * than always dark.
+ */
+const artifactMode = process.argv.includes('--artifact');
+const outArg = process.argv.indexOf('--out');
+const outPath =
+  outArg !== -1 ? process.argv[outArg + 1] : join(root, 'docs/style-guide.html');
 
 /* ------------------------------------------------------------------ */
 /* Parse tokens                                                        */
@@ -273,12 +284,32 @@ const html = `<!doctype html>
 <style>
 ${fontFaces}
 
+${
+  artifactMode
+    ? `/* Light is the base so a light-preferring viewer opens in light. */
 :root{
+${Object.entries(light).map(([k, v]) => `  ${k}: ${v};`).join('\n')}
+  --maxw: 1120px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+${Object.entries(dark).map(([k, v]) => `    ${k}: ${v};`).join('\n')}
+  }
+}
+/* An explicit choice — ours or the viewer's — wins over the media query. */
+:root[data-theme='dark']{
+${Object.entries(dark).map(([k, v]) => `  ${k}: ${v};`).join('\n')}
+}
+:root[data-theme='light']{
+${Object.entries(light).map(([k, v]) => `  ${k}: ${v};`).join('\n')}
+}`
+    : `:root{
 ${Object.entries(dark).map(([k, v]) => `  ${k}: ${v};`).join('\n')}
   --maxw: 1120px;
 }
 :root[data-theme='light']{
 ${Object.entries(lightOverrides).map(([k, v]) => `  ${k}: ${v};`).join('\n')}
+}`
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -336,6 +367,16 @@ section.major > .lede{color:var(--text-muted);max-width:70ch;margin-bottom:28px}
 .val[data-scheme]:before{content:attr(data-scheme) ' ';color:var(--text-dim);opacity:.6}
 html[data-theme='dark'] .val[data-scheme='light']{display:none}
 html[data-theme='light'] .val[data-scheme='dark']{display:none}
+${
+  artifactMode
+    ? `@media (prefers-color-scheme: dark){
+  html:not([data-theme]) .val[data-scheme='light']{display:none}
+}
+@media (prefers-color-scheme: light){
+  html:not([data-theme]) .val[data-scheme='dark']{display:none}
+}`
+    : ''
+}
 .swatch-contrast{margin-top:5px;font-size:11px;color:var(--text-dim);font-family:var(--font-mono)}
 .ratio{font-weight:700}
 .ratio.pass{color:var(--green)}
@@ -704,9 +745,28 @@ if (tick && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
 </html>
 `;
 
-mkdirSync(join(root, 'docs'), { recursive: true });
-writeFileSync(outPath, html);
+let output = html;
 
-const kb = (html.length / 1024).toFixed(0);
-console.log(`Style guide written to docs/style-guide.html (${kb} KB, fonts inlined)`);
+if (artifactMode) {
+  // The host provides <html>, <head> and <body>; hand back only what goes
+  // inside the body, with the stylesheet kept inline at the top.
+  const styleStart = output.indexOf('<style>');
+  const styleEnd = output.indexOf('</style>') + '</style>'.length;
+  const style = output.slice(styleStart, styleEnd);
+  const bodyStart = output.indexOf('<body>') + '<body>'.length;
+  const bodyEnd = output.lastIndexOf('</body>');
+  output = style + '\n' + output.slice(bodyStart, bodyEnd);
+
+  // Drop our own toggle: two theme switches in one page is a usability bug.
+  output = output.replace(
+    /<div class="toggle"[\s\S]*?<\/div>\s*(?=<\/div>)/,
+    '<span class="tag">Follows your theme</span>',
+  );
+}
+
+mkdirSync(dirname(outPath), { recursive: true });
+writeFileSync(outPath, output);
+
+const kb = (output.length / 1024).toFixed(0);
+console.log(`Style guide written to ${outPath} (${kb} KB, fonts inlined)${artifactMode ? ' [artifact fragment]' : ''}`);
 console.log(`  ${Object.keys(dark).length} tokens · ${Object.keys(lightOverrides).length} light overrides`);
