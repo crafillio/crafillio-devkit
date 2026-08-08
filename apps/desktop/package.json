@@ -11,7 +11,7 @@
     "dev": "node build.mjs --dev",
     "start": "npm run bundle && electron .",
     "typecheck": "tsc --noEmit",
-    "dist": "npm run bundle && electron-builder"
+    "dist": "npm run bundle && electron-builder --config electron-builder.config.cjs"
   },
   "dependencies": {
     "@crafillio/core": "*"
