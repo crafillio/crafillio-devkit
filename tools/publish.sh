@@ -23,6 +23,16 @@ TAG=v1.0.0
 
 cd "$(dirname "$0")/.."
 
+# gh keeps its token under ~/.config by default. On this machine that
+# directory is owned by root, so gh authenticates successfully and then fails
+# to save anything — which reads as "not logged in" on the next run. Keep its
+# state somewhere the user actually owns.
+if [ -z "${GH_CONFIG_DIR:-}" ] && [ ! -w "$HOME/.config" ]; then
+  export GH_CONFIG_DIR="$HOME/.gh"
+  mkdir -p "$GH_CONFIG_DIR"
+  chmod 700 "$GH_CONFIG_DIR"
+fi
+
 step() { printf '\n\033[1;35m▸ %s\033[0m\n' "$1"; }
 ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 skip() { printf '  \033[2m·\033[0m %s\n' "$1"; }
@@ -37,9 +47,10 @@ if ! gh auth status >/dev/null 2>&1; then
   cat <<'EOF'
   Not logged in to GitHub. Run this once, then re-run this script:
 
-    gh auth login --hostname github.com --git-protocol https --web
+    GH_CONFIG_DIR="$HOME/.gh" gh auth login --hostname github.com --git-protocol https --web
 
-  The --git-protocol https flag is what stops it asking for an SSH key.
+  GH_CONFIG_DIR matters here: ~/.config is owned by root on this machine, so
+  without it gh authenticates and then cannot save the token.
 EOF
   exit 1
 fi
