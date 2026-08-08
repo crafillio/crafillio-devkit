@@ -1,0 +1,136 @@
+name: Release
+
+# Builds installers for macOS and Windows and attaches them to the release.
+#
+# Windows signing happens here rather than on a developer machine because the
+# free option — SignPath Foundation, for open-source projects — will only sign
+# artefacts it can trace to a build on a trusted CI. That traceability is the
+# thing being certified, so signing locally is not merely inconvenient, it is
+# outside what the certificate attests to.
+#
+# Every signing step is skipped when its secrets are absent, so this workflow
+# produces working unsigned installers until you have them, and signed ones
+# afterwards, with no edit in between.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to attach the build to (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # CSC_LINK / CSC_KEY_PASSWORD are read by electron-builder directly. When
+      # they are unset it produces the ad-hoc signed build instead.
+      - name: Build
+        env:
+          CSC_LINK: ${{ secrets.MAC_CERT_P12 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: apps/desktop/release/*.dmg
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run dist
+
+      # Uploaded unsigned; the signing job takes it from here. Keeping build and
+      # signing in separate jobs is what lets the signer attest to an artefact
+      # it did not have to trust the build environment for.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-unsigned
+          path: apps/desktop/release/*.exe
+          if-no-files-found: error
+
+  sign-windows:
+    needs: windows
+    runs-on: ubuntu-latest
+    # Skipped entirely until the SignPath secrets exist, so the workflow keeps
+    # working before approval comes through.
+    if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-unsigned
+          path: unsigned
+
+      - name: Submit to SignPath
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          github-artifact-name: windows-unsigned
+          wait-for-completion: true
+          output-artifact-directory: signed
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-signed
+          path: signed/*.exe
+          if-no-files-found: error
+
+  publish:
+    needs: [macos, windows, sign-windows]
+    # Runs even when signing was skipped — the unsigned build should still ship.
+    if: ${{ always() && needs.macos.result == 'success' && needs.windows.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect installers
+        run: |
+          mkdir -p out
+          # Prefer the signed Windows build when the signing job produced one.
+          if [ -d artifacts/windows-signed ]; then
+            cp artifacts/windows-signed/*.exe out/
+            echo "Using the SIGNED Windows installer."
+          else
+            cp artifacts/windows-unsigned/*.exe out/
+            echo "Using the UNSIGNED Windows installer — SignPath secrets are not set."
+          fi
+          cp artifacts/macos/*.dmg out/
+          cd out && sha256sum *.dmg *.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: gh release upload "$TAG" out/* --repo "$GITHUB_REPOSITORY" --clobber
