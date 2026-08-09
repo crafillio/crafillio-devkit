@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Camera, Gauge, Send, Loader2 } from 'lucide-react';
+import { Camera, ClipboardCopy, Gauge, Send, Loader2 } from 'lucide-react';
 import { captureForRest } from '../lib/capture';
 import type { Auth, HttpMethod, RestBody, RestRequest } from '@crafillio/core';
 import { KeyValueTable } from './KeyValueTable';
@@ -62,12 +62,27 @@ export function RestPanel({ tab, onSend }: Props) {
 
         <button
           className="btn btn-icon"
-          title="Save a screenshot of this request and its response"
+          title="Copy a screenshot of this request and response to the clipboard"
           onClick={async () => {
             try {
               // Secrets are redacted: a screenshot is the single most likely
               // artefact to end up in a ticket or a chat thread.
-              const path = await window.crafillio.tools.capture(captureForRest(tab, true));
+              await window.crafillio.tools.capture(captureForRest(tab, true), 'clipboard');
+              toast('success', 'Screenshot copied');
+            } catch (err) {
+              toast('error', (err as Error).message);
+            }
+          }}
+        >
+          <ClipboardCopy size={14} />
+        </button>
+
+        <button
+          className="btn btn-icon"
+          title="Save a screenshot of this request and its response"
+          onClick={async () => {
+            try {
+              const path = await window.crafillio.tools.capture(captureForRest(tab, true), 'file');
               if (path) toast('success', `Saved ${path}`);
             } catch (err) {
               toast('error', (err as Error).message);

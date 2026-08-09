@@ -80,6 +80,38 @@ closeRestAgents();
 r = await attempt();
 check('turning verification off globally still works', r.ok, JSON.stringify(r));
 
+/* ---- The global setting must reach workflow steps ---- */
+// The workflow builder has no per-step TLS override, so this is the only way a
+// workflow can talk to a self-signed host: the setting has to apply globally.
+const { runWorkflow } = require('../dist/index.js');
+
+const wfStep = {
+  id: 's1', name: 'Call the self-signed host', kind: 'rest',
+  inputs: [], outputs: [{ id: 'o', name: 'ok', path: 'ok' }], continueOnError: false,
+  request: req(),
+};
+const runIt = () => runWorkflow(
+  { id: 'w', name: 'w', description: '', edges: [], createdAt: '', updatedAt: '', steps: [wfStep] },
+  {}, () => {},
+).done;
+
+setNetworkPolicy({ tls: { verify: true, ignoreHosts: [], caPath: '', certificates: [] } });
+closeRestAgents();
+let wf = await runIt();
+check('a workflow step is refused while verification is on', wf.steps[0].status === 'failed');
+
+setNetworkPolicy({ tls: { verify: false, ignoreHosts: [], caPath: '', certificates: [] } });
+closeRestAgents();
+wf = await runIt();
+check('the global ignore setting applies to workflow steps too',
+  wf.steps[0].status === 'success', wf.steps[0].error);
+
+setNetworkPolicy({ tls: { verify: true, ignoreHosts: ['localhost'], caPath: '', certificates: [] } });
+closeRestAgents();
+wf = await runIt();
+check('a per-host exception applies to workflow steps as well',
+  wf.steps[0].status === 'success', wf.steps[0].error);
+
 server.close();
 closeRestAgents();
 console.log(`\nTLS ignore: ${pass} passed, ${fail} failed`);

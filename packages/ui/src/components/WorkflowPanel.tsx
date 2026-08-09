@@ -273,6 +273,7 @@ export function WorkflowPanel() {
           className="select"
           style={{ minWidth: 190 }}
           value={current.id}
+              title="Which workflow is open"
           onChange={(e) => {
             setCurrent(workflows.find((w) => w.id === e.target.value) ?? null);
             setRecords(new Map());
@@ -609,36 +610,26 @@ function StepEditor({
         else if (el instanceof HTMLTextAreaElement) lastField.current = el;
       }}
     >
+      {/* The header is the step's identity and its two lifecycle switches.
+          The "run if" condition moved to the Repeat tab, where the other
+          conditions live — squeezed in here it left the name field too narrow
+          to read and looked like an unlabelled mystery box. */}
       <div className="wf-step-head">
-        <input
-          className="input"
-          style={{ flex: 1, fontWeight: 600 }}
-          value={step.name}
-          onChange={(e) => onChange({ name: e.target.value })}
-        />
-        <input
-          className="input mono wf-runif"
-          value={step.runIf ?? ''}
-          spellCheck={false}
-          placeholder='Run if… e.g. {{status}} == "ready"'
-          title="Skip this step unless the condition holds. Leave empty to always run."
-          onChange={(e) => onChange({ runIf: e.target.value || undefined })}
-        />
-        {step.kind === 'rest' && (
-          <label
-            className="inline-check"
-            title="Skip certificate checks for this step only. For a staging box with a self-signed certificate."
-          >
-            <input
-              type="checkbox"
-              className="checkbox"
-              checked={step.request.insecureTls}
-              onChange={(e) => setRequest({ insecureTls: e.target.checked })}
-            />
-            Ignore TLS
-          </label>
-        )}
-        <label className="inline-check" title="Carry on even if this step fails">
+        <label className="wf-name-field">
+          <span className="wf-name-label">Step name</span>
+          <input
+            className="input"
+            value={step.name}
+            placeholder="e.g. Authenticate, Create order, Wait for status"
+            title="What this step is called. Shown on the canvas and in the run report."
+            onChange={(e) => onChange({ name: e.target.value })}
+          />
+        </label>
+
+        <label
+          className="inline-check"
+          title="If this step fails, keep running the steps after it instead of stopping the whole workflow."
+        >
           <input
             type="checkbox"
             className="checkbox"
@@ -647,7 +638,12 @@ function StepEditor({
           />
           Continue on error
         </label>
-        <button className="btn btn-sm btn-danger" onClick={onRemove}>
+
+        <button
+          className="btn btn-sm btn-danger"
+          title="Delete this step"
+          onClick={onRemove}
+        >
           <Trash2 size={12} />
         </button>
       </div>
@@ -840,6 +836,7 @@ function RepeatEditor({
   const repeat = step.repeat;
   const enabled = repeat !== undefined;
 
+  const [watchPath, setWatchPath] = useState('');
   const [advanced, setAdvanced] = useState(
     () => repeat !== undefined && parseMembership(repeat.until) === null,
   );
@@ -862,6 +859,41 @@ function RepeatEditor({
       clearTimeout(id);
     };
   }, [repeat?.until, repeat?.failIf]);
+
+  /**
+   * Publishes the given response path as an output and points the condition at
+   * it. The name comes from the last segment, which is what the field is
+   * called in the response and therefore what the user already has in mind.
+   */
+  const addWatched = (): void => {
+    const path = watchPath.trim();
+    if (!path) return;
+
+    const leaf = path
+      .replace(/\[[^\]]*\]/g, '.')
+      .split('.')
+      .map((part) => part.replace(/[^\w-]/g, ''))
+      .filter(Boolean)
+      .pop();
+    const name = leaf || 'value';
+
+    // Reuse an existing output for the same path rather than publishing the
+    // value twice under two names.
+    const existing = step.outputs.find((o) => o.path === path);
+    const outputs = existing
+      ? step.outputs
+      : [...step.outputs, { id: uid('out'), name, path }];
+
+    onChange({
+      outputs,
+      repeat: {
+        ...(repeat ?? { intervalMs: 2000, maxAttempts: 30, until: '' }),
+        until: buildMembership(existing?.name ?? name, watched?.values ?? ['completed']),
+        failIf: buildMembership(existing?.name ?? name, failed?.values ?? ['failed']),
+      },
+    } as Partial<WorkflowStep>);
+    setWatchPath('');
+  };
 
   const set = (next: Partial<NonNullable<WorkflowStep['repeat']>>): void => {
     if (!repeat) return;
@@ -889,6 +921,21 @@ function RepeatEditor({
 
   return (
     <div className="wf-repeat">
+      <div className="field" style={{ marginBottom: 18 }}>
+        <label>Only run this step if…</label>
+        <input
+          className="input mono"
+          value={step.runIf ?? ''}
+          spellCheck={false}
+          placeholder={'leave empty to always run — e.g. {{status}} == "ready"'}
+          onChange={(e) => onChange({ runIf: e.target.value || undefined })}
+        />
+        <p className="field-note">
+          Checked once, before the step runs. When it does not hold the step is skipped and the
+          workflow carries on. Uses the same expressions as the conditions below.
+        </p>
+      </div>
+
       <div className="wf-hint">
         Calls this step over and over until the answer settles — for status endpoints that
         report <code>queued</code>, then <code>running</code>, then <code>completed</code>.
@@ -910,6 +957,7 @@ function RepeatEditor({
                 <select
                   className="select"
                   value={watchName}
+              title="The output this step publishes that decides when polling stops"
                   onChange={(e) => {
                     const name = e.target.value;
                     set({
@@ -930,10 +978,40 @@ function RepeatEditor({
                 </select>
                 {step.outputs.length === 0 && (
                   <p className="field-note warn">
-                    This step publishes no outputs yet. Add one on the Outputs tab — the
-                    condition can only read what the step publishes.
+                    This step publishes nothing yet. Name the field to watch below, or use the
+                    Outputs tab.
                   </p>
                 )}
+              </div>
+
+              {/* A status is rarely at the top level of a response. Rather than
+                  sending people to another tab to publish `data.demo.status`
+                  first, the path can be given here and the output is created
+                  from it. */}
+              <div className="field">
+                <label>Watch a field from the response</label>
+                <div style={{ display: 'flex', gap: 7 }}>
+                  <input
+                    className="input mono"
+                    style={{ flex: 1 }}
+                    value={watchPath}
+                    spellCheck={false}
+                    placeholder="data.demo.status  ·  items[0].state  ·  status"
+                    onChange={(e) => setWatchPath(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') addWatched();
+                    }}
+                  />
+                  <button className="btn btn-sm" onClick={addWatched} disabled={!watchPath.trim()}>
+                    Use this field
+                  </button>
+                </div>
+                <p className="field-note">
+                  Dots for nesting, <code>[0]</code> for arrays, <code>["odd-key"]</code> when a key
+                  has dots or dashes in it. This publishes the value as an output and starts
+                  watching it. To compare a nested field without publishing it, switch below and
+                  write <code>{'{{response.data.demo.status}}'}</code> directly.
+                </p>
               </div>
 
               <div className="field">
@@ -994,6 +1072,14 @@ function RepeatEditor({
                 <code>contains</code>, <code>matches</code>, <code>in [a, b]</code>, combined
                 with <code>and</code>, <code>or</code>, <code>not</code> and parentheses.
               </p>
+              <p className="field-note">
+                Read any field of the response directly with{' '}
+                <code>{'{{response.…}}'}</code> — no output needed. Nesting and array indexes
+                both work:{' '}
+                <code>{'{{response.data.demo.status}} == "completed"'}</code> or{' '}
+                <code>{'{{response.items[0].state}}'}</code>. Names without the prefix refer to
+                outputs and earlier steps as before.
+              </p>
             </div>
           )}
 
@@ -1005,6 +1091,7 @@ function RepeatEditor({
                 className="input"
                 min={0}
                 value={repeat.initialDelayMs ?? 0}
+              title="Milliseconds to wait before the first call. Work that has just started is rarely ready immediately."
                 onChange={(e) => set({ initialDelayMs: Math.max(0, Number(e.target.value)) })}
               />
               <p className="field-note">ms — work just started is rarely ready immediately.</p>
@@ -1016,6 +1103,7 @@ function RepeatEditor({
                 className="input"
                 min={0}
                 value={repeat.intervalMs}
+              title="Milliseconds to wait between attempts"
                 onChange={(e) => set({ intervalMs: Math.max(0, Number(e.target.value)) })}
               />
               <p className="field-note">ms</p>
@@ -1027,6 +1115,7 @@ function RepeatEditor({
                 className="input"
                 min={1}
                 value={repeat.maxAttempts}
+              title="Stop after this many attempts, even if the condition never holds"
                 onChange={(e) => set({ maxAttempts: Math.max(1, Number(e.target.value)) })}
               />
               <p className="field-note">tries</p>
@@ -1038,6 +1127,7 @@ function RepeatEditor({
                 className="input"
                 min={0}
                 value={repeat.timeoutMs ?? 0}
+              title="Stop after this many milliseconds overall, whichever limit is reached first. 0 means no time limit."
                 onChange={(e) => set({ timeoutMs: Number(e.target.value) || undefined })}
               />
               <p className="field-note">ms overall — 0 for no limit.</p>
@@ -1050,6 +1140,7 @@ function RepeatEditor({
                 min={1}
                 step={0.5}
                 value={repeat.backoff ?? 1}
+              title="Multiply the wait after each attempt. 1 polls at a steady rate; 2 doubles each time."
                 onChange={(e) => set({ backoff: Number(e.target.value) || undefined })}
               />
               <p className="field-note">×— 1 polls at a steady rate, 2 doubles each wait.</p>
@@ -1289,6 +1380,7 @@ function InputsEditor({
             <select
               className="select"
               value={input.source.from}
+              title="Where this value comes from: an earlier step, a file, or a fixed value you type"
               onChange={(e) => {
                 const from = e.target.value as InputSource['from'];
                 const first = earlier[0]?.id ?? '';
@@ -1326,6 +1418,7 @@ function InputsEditor({
               <select
                 className="select"
                 value={input.source.stepId}
+              title="Which earlier step to take the value from"
                 onChange={(e) =>
                   update(input.id, { source: { ...input.source, stepId: e.target.value } as InputSource })
                 }
@@ -1394,6 +1487,7 @@ function InputsEditor({
                 <select
                   className="select"
                   value={input.source.as}
+              title="Read the file as text, or as base64 for binary content"
                   onChange={(e) =>
                     update(input.id, {
                       source: { ...input.source, as: e.target.value as 'text' | 'base64' } as InputSource,

@@ -64,7 +64,9 @@ function tokenize(source: string): Token[] {
       const close = source.indexOf('}}', i + 2);
       if (close === -1) throw new Error('Unclosed {{ in condition.');
       const name = source.slice(i + 2, close).trim();
-      if (!/^[\w.-]+$/.test(name)) {
+      // Names may be paths — `response.data.demo.status`, `response.items[0].id`
+      // — so brackets and quoted keys are part of a valid name here.
+      if (!/^[\w.\-[\]"'$]+$/.test(name)) {
         throw new Error(`"${name}" is not a valid variable name.`);
       }
       tokens.push({ kind: 'var', name });
@@ -154,6 +156,8 @@ class Evaluator {
     private readonly tokens: Token[],
     private readonly context: Record<string, string>,
     private readonly unknown: Set<string>,
+    /** Consulted for names the context does not hold, e.g. response paths. */
+    private readonly resolve?: (name: string) => string | undefined,
   ) {}
 
   private peek(): Token {
@@ -246,11 +250,16 @@ class Evaluator {
     const token = this.next();
 
     if (token.kind === 'var') {
-      if (!Object.prototype.hasOwnProperty.call(this.context, token.name)) {
-        this.unknown.add(token.name);
-        return '';
+      if (Object.prototype.hasOwnProperty.call(this.context, token.name)) {
+        return this.context[token.name]!;
       }
-      return this.context[token.name]!;
+      // Falls through to the resolver, which reads paths straight out of the
+      // step's response — so a nested status can be compared without first
+      // publishing it as an output.
+      const resolved = this.resolve?.(token.name);
+      if (resolved !== undefined) return resolved;
+      this.unknown.add(token.name);
+      return '';
     }
     if (token.kind === 'string') return token.value;
     if (token.kind === 'number') return token.value;
@@ -381,10 +390,11 @@ export interface ConditionResult {
 export function evaluateCondition(
   expression: string,
   context: Record<string, string>,
+  resolve?: (name: string) => string | undefined,
 ): ConditionResult {
   const unknown = new Set<string>();
   const tokens = tokenize(expression);
-  const value = new Evaluator(tokens, context, unknown).evaluate();
+  const value = new Evaluator(tokens, context, unknown, resolve).evaluate();
   return { value, unknown: [...unknown] };
 }
 
@@ -393,10 +403,11 @@ export function checkCondition(expression: string): string | null {
   if (expression.trim() === '') return null;
   try {
     // Every variable resolves, so only syntax errors surface here.
-    new Evaluator(tokenize(expression), new Proxy({}, {
-      has: () => true,
-      get: () => '',
-    }) as Record<string, string>, new Set()).evaluate();
+    new Evaluator(
+      tokenize(expression),
+      new Proxy({}, { has: () => true, get: () => '' }) as Record<string, string>,
+      new Set(),
+    ).evaluate();
     return null;
   } catch (err) {
     return (err as Error).message;

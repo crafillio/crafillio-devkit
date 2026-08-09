@@ -213,10 +213,12 @@ export interface CrafillioApi {
      */
     decodeJwt(token: string): Promise<DecodedJwt>;
     /**
-     * Renders a request and response to a PNG and saves it. Returns the path,
-     * or null when the save dialog was dismissed.
+     * Renders a request and response to a PNG.
+     *
+     * Returns the saved path, the string 'clipboard' when copied, or null when
+     * the save dialog was dismissed.
      */
-    capture(input: CaptureInput): Promise<string | null>;
+    capture(input: CaptureInput, destination?: 'file' | 'clipboard'): Promise<string | null>;
   };
 
   /** Chained multi-step API workflows. */

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  ClipboardCopy,
   Camera, FileCode2, Gauge, Loader2, RefreshCw, Send, Square, Plus, Trash2 } from 'lucide-react';
 import type { GrpcEvent, GrpcRequest, GrpcSource } from '@crafillio/core';
 import { CodeEditor } from './CodeEditor';
@@ -193,10 +194,25 @@ export function GrpcPanel({ tab, onSend }: Props) {
           <>
             <button
               className="btn btn-icon"
+              title="Copy a screenshot of this call and response to the clipboard"
+              onClick={async () => {
+                try {
+                  await window.crafillio.tools.capture(captureForGrpc(tab, true), 'clipboard');
+                  toast('success', 'Screenshot copied');
+                } catch (err) {
+                  toast('error', (err as Error).message);
+                }
+              }}
+            >
+              <ClipboardCopy size={14} />
+            </button>
+
+            <button
+              className="btn btn-icon"
               title="Save a screenshot of this call and its response"
               onClick={async () => {
                 try {
-                  const path = await window.crafillio.tools.capture(captureForGrpc(tab, true));
+                  const path = await window.crafillio.tools.capture(captureForGrpc(tab, true), 'file');
                   if (path) toast('success', `Saved ${path}`);
                 } catch (err) {
                   toast('error', (err as Error).message);

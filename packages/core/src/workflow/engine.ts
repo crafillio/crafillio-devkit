@@ -390,6 +390,10 @@ export function runWorkflow(
         // into the shared context. Factored out so polling just calls it again
         // — each attempt overwrites the same variables, so {{status}} always
         // refers to the newest response rather than the first one.
+        // The parsed body of the latest attempt, so a condition can reach into
+        // it directly instead of requiring an output to be declared first.
+        let lastJson: unknown;
+
         const attemptOnce = async (): Promise<void> => {
           const missing = new Set<string>();
           // Whatever the protocol, the JSON body a step publishes from.
@@ -492,6 +496,8 @@ export function runWorkflow(
 
           /* 4. Publish outputs. */
 
+          lastJson = json;
+
           // Replaced, not appended: when polling, these describe the attempt
           // that just happened, not every attempt stacked on top of each other.
           record.extractedOutputs = [];
@@ -508,6 +514,26 @@ export function runWorkflow(
             });
           }
 
+        };
+
+        /**
+         * Resolves `response.<path>` against the latest response body.
+         *
+         * A status is rarely at the top level — `data.demo.status` is at least
+         * as common as `status` — and requiring an output to be declared
+         * before it can be compared made the simple case a two-step job.
+         * The `response.` prefix keeps it unambiguous against a user's own
+         * output names.
+         */
+        const resolveResponsePath = (name: string): string | undefined => {
+          const path = name.startsWith('response.')
+            ? name.slice('response.'.length)
+            : name.startsWith('body.')
+              ? name.slice('body.'.length)
+              : null;
+          if (path === null || lastJson === undefined) return undefined;
+          const value = getPath(lastJson, path);
+          return value === undefined ? undefined : stringifyValue(value);
         };
 
         const repeat = step.repeat;
@@ -558,7 +584,7 @@ export function runWorkflow(
               // failIf is checked first: a job that has permanently failed
               // should stop now rather than after every remaining attempt.
               if (repeat.failIf !== undefined && repeat.failIf.trim() !== '') {
-                const bad = evaluateCondition(repeat.failIf, context);
+                const bad = evaluateCondition(repeat.failIf, context, resolveResponsePath);
                 if (bad.value) {
                   record.pollLog.push({ attempt, elapsedMs: elapsed(stepStarted), summary, settled: false });
                   throw new Error(
@@ -568,7 +594,7 @@ export function runWorkflow(
                 }
               }
 
-              const verdict = evaluateCondition(repeat.until, context);
+              const verdict = evaluateCondition(repeat.until, context, resolveResponsePath);
               if (verdict.unknown.length > 0) {
                 throw new Error(
                   `The until condition refers to ${verdict.unknown.map((n) => `{{${n}}}`).join(', ')}, ` +

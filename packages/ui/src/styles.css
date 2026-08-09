@@ -2097,3 +2097,241 @@ kbd {
 
 .request-row[draggable='true'] { cursor: grab; }
 .request-row:active { cursor: grabbing; }
+
+/* The site link under the credit. A plain magenta link rather than a button:
+   it sits at the foot of the sidebar where a filled control would compete with
+   the navigation above it. */
+.credit-site {
+  margin: 5px 7px 0;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  text-align: left;
+}
+
+.credit-site:hover { color: var(--accent-hover); text-decoration: underline; text-underline-offset: 2px; }
+.credit-site:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+/* Photo beside the name in About, matching the sidebar credit. */
+.about-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+}
+
+.about-identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+/* The step name gets a visible label: it is the one field people look for
+   first, and an unlabelled box at the top of a panel reads as decoration. */
+.wf-name-field { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+
+.wf-name-label {
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.wf-name-field .input { font-weight: 600; }
+
+.wf-step-head { align-items: flex-end; }
+
+/* ================================================================== */
+/* Polish                                                             */
+/*                                                                    */
+/* A refinement layer, deliberately last so it adjusts the system      */
+/* rather than replacing it. Every rule here is depth, motion or       */
+/* rhythm — no colour token is redefined, so the contrast ratios the   */
+/* palette was built around still hold, in both themes.               */
+/*                                                                    */
+/* No gradients: the brand is one flat magenta, and a tool that lives  */
+/* on screen all day should sit back rather than shimmer.             */
+/* ================================================================== */
+
+:root {
+  /* Layered rather than single-cast: one tight shadow for the edge and a
+     wider, softer one for the lift. A single blur reads as a drop shadow;
+     two read as an object above a surface. */
+  --shadow-sm: 0 1px 1px rgba(0, 0, 0, 0.30), 0 1px 3px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.24), 0 10px 26px rgba(0, 0, 0, 0.42);
+  --shadow-lg: 0 4px 10px rgba(0, 0, 0, 0.30), 0 30px 74px rgba(0, 0, 0, 0.58);
+  --ring: 0 0 0 3px var(--accent-soft);
+}
+
+:root[data-theme='light'] {
+  --shadow-sm: 0 1px 1px rgba(20, 21, 26, 0.05), 0 1px 3px rgba(20, 21, 26, 0.06);
+  --shadow-md: 0 2px 4px rgba(20, 21, 26, 0.06), 0 10px 26px rgba(20, 21, 26, 0.10);
+  --shadow-lg: 0 4px 10px rgba(20, 21, 26, 0.08), 0 30px 74px rgba(20, 21, 26, 0.16);
+}
+
+/* ---- Motion ---------------------------------------------------- */
+
+/* One easing curve everywhere. Mixed easings are the difference between an
+   interface that feels considered and one that feels assembled. */
+.btn,
+.subtab,
+.tab,
+.tree-row,
+.row-action,
+.method-chip,
+.credit-main,
+.jwt-chip {
+  transition:
+    background-color var(--fast) var(--ease),
+    border-color var(--fast) var(--ease),
+    color var(--fast) var(--ease),
+    box-shadow var(--med) var(--ease),
+    transform var(--fast) var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
+/* ---- Buttons --------------------------------------------------- */
+
+.btn { box-shadow: var(--shadow-sm); }
+
+/* A single pixel of lift. Enough to register as responsive, small enough
+   that a row of buttons does not appear to bounce. */
+.btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn:active:not(:disabled) { transform: translateY(0); box-shadow: var(--shadow-sm); }
+.btn:disabled { box-shadow: none; }
+
+.btn-primary { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), 0 4px 14px var(--accent-soft); }
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3), 0 10px 26px var(--accent-soft);
+}
+
+/* ---- Focus ----------------------------------------------------- */
+
+/* Focus is a ring, never a colour change: colour alone is invisible to a
+   third of the reasons someone is tabbing in the first place. */
+.btn:focus-visible,
+.input:focus-visible,
+.select:focus-visible,
+.subtab:focus-visible,
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.input:focus,
+.select:focus,
+textarea.input:focus {
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+/* ---- Inputs ---------------------------------------------------- */
+
+.input,
+.select {
+  transition:
+    border-color var(--fast) var(--ease),
+    box-shadow var(--med) var(--ease),
+    background-color var(--fast) var(--ease);
+}
+
+.input:hover:not(:focus):not(:disabled),
+.select:hover:not(:focus):not(:disabled) { border-color: var(--border-strong); }
+
+/* ---- Tabs ------------------------------------------------------ */
+
+/* The active tab is marked by a solid accent rule rather than a fill: the
+   strip sits above content all day, and a filled tab competes with it. */
+.tab { position: relative; }
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+}
+
+.subtab { position: relative; }
+
+.subtab.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--accent);
+}
+
+/* ---- Sidebar --------------------------------------------------- */
+
+.tree-row { border-radius: var(--radius); }
+
+.tree-row:hover { box-shadow: inset 0 0 0 1px var(--border); }
+
+/* ---- Panels ---------------------------------------------------- */
+
+.modal { box-shadow: var(--shadow-lg); }
+
+.warn-box,
+.wf-repeat-simple,
+.wf-repeat-timing,
+.about-author,
+.about-card { box-shadow: var(--shadow-sm); }
+
+/* ---- Scrollbars ------------------------------------------------ */
+
+/* Slim and self-effacing: a full-width scrollbar in every pane is the
+   loudest thing on screen and says nothing. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover { background: var(--text-dim); background-clip: content-box; }
+*::-webkit-scrollbar-corner { background: transparent; }
+
+/* ---- Typography ------------------------------------------------ */
+
+/* Display type tightens as it grows; body type does not. Tracking that
+   works at 11px looks slack at 24px. */
+h1, .wordmark { letter-spacing: -0.02em; }
+h2 { letter-spacing: -0.01em; }
+
+.section-title,
+.wf-vars-label { font-variant-numeric: tabular-nums; }
+
+/* Numbers that change in place — timings, sizes, counters — must not
+   reflow as their digits change. */
+.count,
+.jwt-chip,
+.chip,
+.method-chip,
+.timing,
+.status-line { font-variant-numeric: tabular-nums; }
+
+/* The count badge sat at 4.16:1 against its own pill in dark — under AA for
+   9.5px text. It sits on --surface-3, not --bg, which is what made the
+   muted tier fall short here; --text-dim clears it on that background. */
+.subtab .count { color: var(--text-dim); }

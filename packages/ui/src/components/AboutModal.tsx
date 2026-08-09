@@ -4,6 +4,7 @@ import { Modal } from './Modal';
 import { Wordmark } from './Logo';
 import { useStore } from '../state/store';
 import { useT } from '../i18n';
+import { AUTHOR_AVATAR } from '../assets/avatar';
 
 const PROFILE_URL = 'https://github.com/crafillio';
 const REPO_URL = 'https://github.com/crafillio/crafillio-devkit';
@@ -43,9 +44,15 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="about-author">
-        <div>
-          <div style={{ fontWeight: 650 }}>Amit Singh</div>
-          <div className="meta">{t.about.creator}</div>
+        {/* Photo and name are one group: the row is space-between, so a third
+            top-level child would strand the photo away from the name it
+            belongs to. */}
+        <div className="about-identity">
+          <img className="about-avatar" src={AUTHOR_AVATAR} alt="" width="44" height="44" />
+          <div>
+            <div style={{ fontWeight: 650 }}>Amit Singh</div>
+            <div className="meta">{t.about.creator}</div>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-sm" onClick={() => open(REPO_URL)}>

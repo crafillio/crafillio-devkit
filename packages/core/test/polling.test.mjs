@@ -225,6 +225,139 @@ check('the token still applied on every poll', res.context.authSeen === 'true');
 check('elapsed time increases across attempts',
   poll.pollLog[2].elapsedMs > poll.pollLog[0].elapsedMs);
 
+/* ---- Nested response shapes ---- */
+
+// A status is rarely at the top level. The watched value is an ordinary
+// output, so any path getPath understands works — including through objects
+// and arrays.
+let nestedCalls = 0;
+const nested = http.createServer((req, res) => {
+  nestedCalls += 1;
+  const stage = ['queued', 'running', 'completed'][Math.min(nestedCalls - 1, 2)];
+  res.writeHead(200, { 'content-type': 'application/json' });
+  res.end(JSON.stringify({
+    data: { demo: { status: stage, meta: { attempt: nestedCalls } } },
+    items: [{ state: stage }],
+    'odd-key': { 'with.dot': stage },
+  }));
+});
+await new Promise((r) => nested.listen(0, '127.0.0.1', r));
+const nbase = `http://127.0.0.1:${nested.address().port}`;
+
+nestedCalls = 0;
+res = await run([
+  step({
+    id: 'deep', request: rest({ url: `${nbase}/job` }),
+    outputs: [{ id: 'o', name: 'status', path: 'data.demo.status' }],
+    repeat: { until: '{{status}} == "completed"', intervalMs: 10, maxAttempts: 10 },
+  }),
+]);
+check('a deeply nested status is polled correctly', res.steps[0].status === 'success', res.steps[0].error);
+check('  ...taking the same three attempts', res.steps[0].attempts === 3, `attempts=${res.steps[0].attempts}`);
+check('  ...and publishing the nested value', res.context.status === 'completed');
+
+nestedCalls = 0;
+res = await run([
+  step({
+    id: 'arr', request: rest({ url: `${nbase}/job` }),
+    outputs: [{ id: 'o', name: 'state', path: 'items[0].state' }],
+    repeat: { until: '{{state}} == "completed"', intervalMs: 10, maxAttempts: 10 },
+  }),
+]);
+check('a value inside an array is polled correctly', res.steps[0].status === 'success', res.steps[0].error);
+
+nestedCalls = 0;
+res = await run([
+  step({
+    id: 'odd', request: rest({ url: `${nbase}/job` }),
+    outputs: [{ id: 'o', name: 'state', path: '["odd-key"]["with.dot"]' }],
+    repeat: { until: '{{state}} == "completed"', intervalMs: 10, maxAttempts: 10 },
+  }),
+]);
+check('awkward keys work when bracketed', res.steps[0].status === 'success', res.steps[0].error);
+
+nestedCalls = 0;
+res = await run([
+  step({
+    id: 'multi', request: rest({ url: `${nbase}/job` }),
+    outputs: [
+      { id: 'o1', name: 'status', path: 'data.demo.status' },
+      { id: 'o2', name: 'attempt', path: 'data.demo.meta.attempt' },
+    ],
+    repeat: {
+      until: '{{status}} == "completed" and {{attempt}} >= 3',
+      intervalMs: 10, maxAttempts: 10,
+    },
+  }),
+]);
+check('two nested values can be combined in one condition',
+  res.steps[0].status === 'success', res.steps[0].error);
+check('  ...and both are republished each attempt', res.context.attempt === '3', res.context.attempt);
+
+const nbase2 = nbase;
+
+/* ---- Comparing a nested field directly, with no output declared ---- */
+
+nestedCalls = 0;
+res = await run([
+  step({
+    id: 'direct', request: rest({ url: `${nbase2}/job` }),
+    // No outputs at all: the condition reaches into the response itself.
+    outputs: [],
+    repeat: { until: '{{response.data.demo.status}} == "completed"', intervalMs: 10, maxAttempts: 10 },
+  }),
+]);
+check('a nested field can be compared without declaring an output',
+  res.steps[0].status === 'success', res.steps[0].error);
+check('  ...still taking three attempts', res.steps[0].attempts === 3, `attempts=${res.steps[0].attempts}`);
+
+nestedCalls = 0;
+res = await run([
+  step({
+    id: 'arrpath', request: rest({ url: `${nbase2}/job` }), outputs: [],
+    repeat: { until: '{{response.items[0].state}} == "completed"', intervalMs: 10, maxAttempts: 10 },
+  }),
+]);
+check('an array index works in a condition path', res.steps[0].status === 'success', res.steps[0].error);
+
+nestedCalls = 0;
+res = await run([
+  step({
+    id: 'combo', request: rest({ url: `${nbase2}/job` }), outputs: [],
+    repeat: {
+      until: '{{response.data.demo.status}} in [completed, done]',
+      failIf: '{{response.data.demo.status}} in [failed, cancelled]',
+      intervalMs: 10, maxAttempts: 10,
+    },
+  }),
+]);
+check('nested paths work in both until and failIf', res.steps[0].status === 'success', res.steps[0].error);
+
+nestedCalls = 0;
+res = await run([
+  step({
+    id: 'mixed', request: rest({ url: `${nbase2}/job` }),
+    outputs: [{ id: 'o', name: 'attempt', path: 'data.demo.meta.attempt' }],
+    repeat: {
+      until: '{{response.data.demo.status}} == "completed" and {{attempt}} >= 3',
+      intervalMs: 10, maxAttempts: 10,
+    },
+  }),
+]);
+check('a response path and a declared output combine in one condition',
+  res.steps[0].status === 'success', res.steps[0].error);
+
+nestedCalls = 0;
+res = await run([
+  step({
+    id: 'typo2', request: rest({ url: `${nbase2}/job` }), outputs: [],
+    repeat: { until: '{{response.data.nope.status}} == "completed"', intervalMs: 10, maxAttempts: 3 },
+  }),
+]);
+check('a path that matches nothing is reported, not silently false',
+  res.steps[0].status === 'failed' && /response\.data\.nope\.status/.test(res.steps[0].error ?? ''),
+  res.steps[0].error);
+
 /* ---- Giving up ---- */
 
 res = await run([
@@ -436,6 +569,7 @@ check('cancelling wakes the sleep instead of waiting it out', cancelMs < 1500, `
 check('the cancelled step is reported as failed with a reason',
   /cancel/i.test(cancelled.steps[0].error ?? ''), cancelled.steps[0].error);
 
+nested.close();
 server.close();
 closeRestAgents?.();
 console.log(`\nPolling: ${pass} passed, ${fail} failed`);

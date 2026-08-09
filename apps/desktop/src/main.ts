@@ -6,7 +6,9 @@
  * handlers registered in `registerHandlers`.
  */
 
-import { app, BrowserWindow, dialog, nativeTheme, safeStorage, shell, Menu } from 'electron';
+import { app, BrowserWindow, dialog, nativeTheme, safeStorage, shell, Menu,
+  clipboard,
+} from 'electron';
 import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { statSync } from 'node:fs';
@@ -503,7 +505,7 @@ function registerHandlers(): void {
   });
 
   /* Interop */
-  handle('tools:capture', async (input: CaptureInput) => {
+  handle('tools:capture', async (input: CaptureInput, destination: 'file' | 'clipboard' = 'file') => {
     const html = renderCapture(input);
 
     // Rendered in its own window rather than captured from the app's: the app
@@ -538,6 +540,14 @@ function registerHandlers(): void {
       const image = await shot.webContents.capturePage();
       const png = image.toPNG();
       if (png.length < 1000) throw new Error('The capture came out blank.');
+
+      // Straight to the clipboard: pasting into a ticket or a chat is the
+      // usual destination, and a round trip through the filesystem for that is
+      // pure friction.
+      if (destination === 'clipboard') {
+        clipboard.writeImage(image);
+        return 'clipboard';
+      }
 
       const safe = input.title.replace(/[^\w.-]+/g, '-').toLowerCase().replace(/^-|-$/g, '');
       const result = await dialog.showSaveDialog({
