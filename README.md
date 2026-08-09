@@ -107,6 +107,7 @@ you want the stronger guarantee, switch to the keychain in About.
 | **macOS** — Apple silicon | [APIDevkit-mac-arm64.dmg](https://github.com/crafillio/crafillio-devkit/releases/latest/download/APIDevkit-mac-arm64.dmg) |
 | **macOS** — Intel | [APIDevkit-mac-x64.dmg](https://github.com/crafillio/crafillio-devkit/releases/latest/download/APIDevkit-mac-x64.dmg) |
 | **Windows** — x64 & ARM | [APIDevkit-windows-setup.exe](https://github.com/crafillio/crafillio-devkit/releases/latest/download/APIDevkit-windows-setup.exe) |
+| **Windows** — portable, no install | [APIDevkit-windows-portable-x64.zip](https://github.com/crafillio/crafillio-devkit/releases/latest/download/APIDevkit-windows-portable-x64.zip) · [ARM](https://github.com/crafillio/crafillio-devkit/releases/latest/download/APIDevkit-windows-portable-arm64.zip) |
 
 Every build is on the [releases page](https://github.com/crafillio/crafillio-devkit/releases/latest).
 Builds are unsigned, so macOS asks you to confirm the first launch (right-click → Open) and Windows

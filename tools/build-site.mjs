@@ -35,6 +35,7 @@ const DOWNLOAD = {
   macArm: `${DL}/APIDevkit-mac-arm64.dmg`,
   macIntel: `${DL}/APIDevkit-mac-x64.dmg`,
   windows: `${DL}/APIDevkit-windows-setup.exe`,
+  windowsPortable: `${DL}/APIDevkit-windows-portable-x64.zip`,
 };
 /** GitHub serves every account's avatar here; no API call needed. */
 const AVATAR = `https://github.com/${HANDLE}.png?size=240`;
@@ -362,6 +363,13 @@ const body = `
           <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.6 10.2 4.6v7H3v-6ZM11.3 4.4 21 3v8.6h-9.7v-7.2ZM3 12.4h7.2v7L3 18.4v-6ZM11.3 12.4H21V21l-9.7-1.4v-7.2Z"/></svg>
         </span>
         <span class="dl-text"><strong>Windows</strong><small>x64 &amp; ARM · installer</small></span>
+      </a>
+
+      <a class="dl" href="${esc(DOWNLOAD.windowsPortable)}" data-os="windows-portable" download>
+        <span class="dl-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.6 10.2 4.6v7H3v-6ZM11.3 4.4 21 3v8.6h-9.7v-7.2ZM3 12.4h7.2v7L3 18.4v-6ZM11.3 12.4H21V21l-9.7-1.4v-7.2Z"/></svg>
+        </span>
+        <span class="dl-text"><strong>Windows</strong><small>portable · unzip and run, no install</small></span>
       </a>
 
     </div>

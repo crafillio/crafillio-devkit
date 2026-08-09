@@ -64,7 +64,20 @@ which any process can write to — is the case that rule scrutinises hardest.
 Nothing about the file is the problem, so nothing in a rebuild will clear it.
 There are three ways through, from best to worst.
 
-### 1. Install for all users
+### 1. Use the portable build
+
+`APIDevkit-windows-portable-x64.zip` (or `-arm64`) needs no installer at all:
+unzip it anywhere and run `API Devkit.exe`. It is the same application the
+installer lays down, minus the installer's own elevation helper, and it keeps
+your data in the same place — `%USERPROFILE%\.crafillio` — so you can move
+between the two without losing anything.
+
+Unzipping to a folder you own, such as `C:\Users\<you>\Apps`, avoids the
+installer entirely. Note that a user-writable location is still a
+user-writable location, so a strict ASR policy may object to it too; if it
+does, try the next option.
+
+### 2. Install for all users
 
 Run the installer and choose **Anyone who uses this computer** when asked. That
 installs to `Program Files`, which is not user-writable and which ASR policies
@@ -72,7 +85,7 @@ treat quite differently. It needs administrator rights once, at install time.
 This is the option to try first — it changes nothing about your security
 posture.
 
-### 2. Exclude just this application
+### 3. Exclude just this application
 
 If you administer the machine, exclude the one folder rather than turning the
 rule off. In an **administrator** PowerShell:
@@ -89,7 +102,7 @@ Get-MpPreference | Select-Object -ExpandProperty AttackSurfaceReductionRules_Ids
 
 The rule in question is `c1db55ab-c21a-4637-bb3f-a12568109d35`.
 
-### 3. On a managed or work computer, ask IT
+### 4. On a managed or work computer, ask IT
 
 ASR rules are normally pushed by Intune or Group Policy, and a local exclusion
 will be overwritten at the next policy refresh — or refused outright. The

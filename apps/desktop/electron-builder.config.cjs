@@ -75,7 +75,8 @@ module.exports = {
   },
 
   win: {
-    artifactName: 'APIDevkit-windows-setup.${ext}',
+    // nsis overrides this with its own name below; the zip takes it.
+    artifactName: 'APIDevkit-windows-portable-${arch}.${ext}',
 
     // Written into the executable's VERSIONINFO. A binary with no company
     // name and a vague description is part of what heuristic scanners weigh,
@@ -83,7 +84,15 @@ module.exports = {
     // Properties tab. Free to get right; misleading to leave blank.
     legalTrademarks: '',
     verifyUpdateCodeSignature: false,
-    target: [{ target: 'nsis', arch: ['x64', 'arm64'] }],
+    target: [
+      { target: 'nsis', arch: ['x64', 'arm64'] },
+      // A no-install build: unzip it and run the exe.
+      //
+      // Worth shipping for its own sake — plenty of people cannot or would
+      // rather not run an installer on a work machine — and it sidesteps the
+      // installer entirely for anyone whose policy blocks it.
+      { target: 'zip', arch: ['x64', 'arm64'] },
+    ],
   },
 
   nsis: {
