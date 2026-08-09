@@ -475,6 +475,10 @@ function StepEditor({
    * plus its own inputs. Listing them makes chaining discoverable — otherwise
    * you have to remember the name you typed three nodes ago.
    */
+  // The last text field touched inside this editor, so a variable lands where
+  // the user is working rather than always in the URL.
+  const lastField = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+
   const available = [
     ...earlier.flatMap((s) =>
       s.outputs
@@ -484,29 +488,48 @@ function StepEditor({
     ...step.inputs.filter((i) => i.name.trim()).map((i) => ({ name: i.name, from: 'this step' })),
   ];
 
-  /** Inserts {{name}} into the URL at the caret, not just at the end. */
+  /**
+   * Inserts {{name}} wherever the user was last typing.
+   *
+   * It used to always target the URL, which is the wrong place for the most
+   * common case by far: an auth step publishes a token and it belongs in an
+   * Authorization header, not the path. Remembering the last focused field
+   * makes one control work for the URL, any header value, and the body.
+   */
   const insertVariable = (name: string): void => {
     const token = `{{${name}}}`;
-    if (step.kind !== 'rest') {
-      // gRPC has no URL bar; put it on the clipboard so it can go wherever
-      // the user actually needs it.
-      void navigator.clipboard.writeText(token);
+    const field = lastField.current;
+
+    if (field && field.isConnected && !field.disabled && !field.readOnly) {
+      const start = field.selectionStart ?? field.value.length;
+      const end = field.selectionEnd ?? start;
+      const next = field.value.slice(0, start) + token + field.value.slice(end);
+
+      // React tracks the previous value on the DOM node, so assigning `.value`
+      // directly is swallowed as a no-op change. Going through the prototype
+      // setter updates that bookkeeping, and the dispatched event is what
+      // React's onChange actually listens for.
+      const proto =
+        field instanceof HTMLTextAreaElement
+          ? HTMLTextAreaElement.prototype
+          : HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(field, next);
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+
+      requestAnimationFrame(() => {
+        field.focus();
+        field.setSelectionRange(start + token.length, start + token.length);
+      });
       return;
     }
-    const input = urlRef.current;
-    if (!input) {
+
+    if (step.kind === 'rest') {
       setRequest({ url: step.request.url + token });
       return;
     }
-    const start = input.selectionStart ?? step.request.url.length;
-    const end = input.selectionEnd ?? start;
-    const next = step.request.url.slice(0, start) + token + step.request.url.slice(end);
-    setRequest({ url: next });
-    // Put the caret after what we inserted, so typing continues naturally.
-    requestAnimationFrame(() => {
-      input.focus();
-      input.setSelectionRange(start + token.length, start + token.length);
-    });
+    // gRPC has no URL bar and nothing was focused; the clipboard is the only
+    // honest destination left.
+    void navigator.clipboard.writeText(token);
   };
 
   const setRequest = (next: Partial<RestRequest>): void => {
@@ -520,7 +543,14 @@ function StepEditor({
   };
 
   return (
-    <div className="pane">
+    <div
+      className="pane"
+      onFocusCapture={(e) => {
+        const el = e.target as HTMLElement;
+        if (el instanceof HTMLInputElement && el.type !== 'checkbox') lastField.current = el;
+        else if (el instanceof HTMLTextAreaElement) lastField.current = el;
+      }}
+    >
       <div className="wf-step-head">
         <input
           className="input"
@@ -536,6 +566,20 @@ function StepEditor({
           title="Skip this step unless the condition holds. Leave empty to always run."
           onChange={(e) => onChange({ runIf: e.target.value || undefined })}
         />
+        {step.kind === 'rest' && (
+          <label
+            className="inline-check"
+            title="Skip certificate checks for this step only. For a staging box with a self-signed certificate."
+          >
+            <input
+              type="checkbox"
+              className="checkbox"
+              checked={step.request.insecureTls}
+              onChange={(e) => setRequest({ insecureTls: e.target.checked })}
+            />
+            Ignore TLS
+          </label>
+        )}
         <label className="inline-check" title="Carry on even if this step fails">
           <input
             type="checkbox"
@@ -577,6 +621,18 @@ function StepEditor({
         <GrpcStepBar step={step} setGrpc={setGrpc} />
       )}
 
+      {available.length === 0 && earlier.length > 0 && (
+        <div className="wf-vars">
+          <span className="wf-vars-label">Nothing to use yet</span>
+          <span className="wf-vars-hint">
+            No earlier step publishes a value. Open the step that returns what you need — an auth
+            call, say — go to its <strong>Outputs</strong> tab and publish the field (for a token,
+            path <code>token</code> named <code>token</code>). It is then available as{' '}
+            <code>{'{{token}}'}</code> in <em>every</em> later step, not just the next one.
+          </span>
+        </div>
+      )}
+
       {available.length > 0 && (
         <div className="wf-vars">
           <span className="wf-vars-label">Available here</span>
@@ -585,12 +641,15 @@ function StepEditor({
               key={v.name}
               className="wf-var"
               onClick={() => insertVariable(v.name)}
-              title={`From ${v.from} — click to insert into the URL`}
+              title={`From ${v.from} — click to insert where you last typed`}
             >
               {`{{${v.name}}}`}
             </button>
           ))}
-          <span className="wf-vars-hint">click to insert · also works in headers and body</span>
+          <span className="wf-vars-hint">
+            click a field first, then a variable — it inserts at the caret, in the URL, a header
+            value or the body
+          </span>
         </div>
       )}
 
@@ -1335,7 +1394,7 @@ function OutputsEditor({
       <div className="wf-hint">
         An output lifts a value out of this step's response and publishes it under a name that
         later steps can use. Leave the path empty to publish the whole body.
-      </div>
+       Anything published here is available to <strong>every</strong> later step as <code>{'{{name}}'}</code> — not only the next one — so an auth token captured once serves the whole workflow.</div>
 
       <table className="kv">
         <thead>

@@ -55,11 +55,32 @@ check('known variables are not reported as unknown',
 check('both sides of an or are checked for unknowns',
   evaluateCondition('{{status}} == "in progress" or {{ghost}} == "1"', ctx).unknown.join() === 'ghost');
 
+// Multi-word values without quotes: statuses are routinely phrases, and
+// requiring quotes produced a parse error pointing at the second word.
+const phrases = { st: 'Access Token', s: 'in progress', v: 'Version 2' };
+check('an unquoted two-word value is one literal',
+  evaluateCondition('{{st}} == Access Token', phrases).value);
+check('  ...and still compares correctly when it should not match',
+  !evaluateCondition('{{st}} == Access Denied', phrases).value);
+check('unquoted phrase with a number', evaluateCondition('{{v}} == Version 2', phrases).value);
+check('a following "and" is still an operator, not part of the value',
+  evaluateCondition('{{s}} == in progress and {{st}} == Access Token', phrases).value);
+check('a following "or" likewise',
+  evaluateCondition('{{s}} == nope or {{st}} == Access Token', phrases).value);
+check('phrases work inside a list',
+  evaluateCondition('{{s}} in [queued, in progress]', phrases).value);
+check('contains takes a phrase too',
+  evaluateCondition('{{st}} contains Access', phrases).value);
+check('quoting still works and means the same',
+  evaluateCondition('{{st}} == "Access Token"', phrases).value);
+
 const bad = (expr) => { try { evaluateCondition(expr, ctx); return null; } catch (e) { return e.message; } };
 check('unclosed brace is rejected', bad('{{status == "x"') !== null);
 check('unclosed quote is rejected', bad('{{status}} == "x') !== null);
 check('missing paren is rejected', bad('({{status}}') !== null);
 check('trailing junk is rejected', bad('{{status}} == "x" "y"') !== null);
+check('  ...with a message telling you to quote the value',
+  (bad('{{status}} == "x" "y"') || '').includes('quotes'), bad('{{status}} == "x" "y"'));
 check('a bad regex reports itself clearly', (bad('{{name}} matches "("') || '').includes('regular expression'));
 check('checkCondition accepts a good expression', checkCondition('{{a}} == "b" and not {{c}}') === null);
 check('checkCondition rejects a bad one', checkCondition('{{a}} ==') !== null);

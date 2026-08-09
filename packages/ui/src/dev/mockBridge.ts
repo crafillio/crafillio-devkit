@@ -270,7 +270,7 @@ export function installMockBridge(): void {
           auth: { enabled: false, username: '', password: '' },
           bypass: ['localhost', '127.0.0.1', '::1'],
         },
-        tls: { verify: true, caPath: '', certificates: [] },
+        tls: { verify: true, ignoreHosts: [], caPath: '', certificates: [] },
       };
       return {
         load: async () => current,

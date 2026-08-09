@@ -10,6 +10,7 @@ import {
   isBypassed,
   type ClientCertificate,
   type ProxySettings,
+  tlsIgnored,
   type TlsSettings,
 } from '../store/settings.js';
 import type {
@@ -55,8 +56,15 @@ function readCertFile(path: string, label: string): Buffer {
 /** TLS material for a host: trust anchors plus any client certificate. */
 function tlsOptionsFor(host: string, insecureTls: boolean): Record<string, unknown> {
   const tls = policy.tls;
-  // A per-request override always wins over the global setting.
-  const verify = insecureTls ? false : (tls?.verify ?? true);
+  // Precedence, most specific first: the request's own override, then the
+  // per-host ignore list, then the global setting. Anything else would let a
+  // global "verify on" silently override the exception the user added for one
+  // staging box.
+  const verify = insecureTls
+    ? false
+    : tlsIgnored(host, tls?.ignoreHosts)
+      ? false
+      : (tls?.verify ?? true);
   const options: Record<string, unknown> = { rejectUnauthorized: verify };
 
   if (tls?.caPath) options.ca = readCertFile(tls.caPath, 'CA bundle');

@@ -177,7 +177,13 @@ class Evaluator {
   evaluate(): boolean {
     const result = this.or();
     if (this.peek().kind !== 'end') {
-      throw new Error(`Unexpected trailing input in condition: ${describe(this.peek())}`);
+      // Say what to do, not just what went wrong. Nearly every case of this is
+      // a value that needs quoting.
+      throw new Error(
+        `Unexpected ${describe(this.peek())} after a complete condition. ` +
+          'If it is part of a text value, put the value in quotes — ' +
+          'for example {{status}} == "Access Token".',
+      );
     }
     return result;
   }
@@ -250,8 +256,22 @@ class Evaluator {
     if (token.kind === 'number') return token.value;
 
     if (token.kind === 'word') {
-      // Bare words are literals, so `{{s}} == completed` works unquoted.
-      return token.value;
+      // Bare words are literals, so `{{s}} == completed` works unquoted. Runs
+      // of them join into one value: statuses are routinely phrases such as
+      // "in progress" or "Access Token", and requiring quotes around those
+      // turned an ordinary condition into a parse error pointing at the second
+      // word, which told the user nothing about what to do.
+      let text = token.value;
+      for (;;) {
+        const next = this.peek();
+        const isBareWord =
+          next.kind === 'word' && !WORD_OPERATORS.includes(next.value.toLowerCase()) &&
+          !['and', 'or', 'not'].includes(next.value.toLowerCase());
+        const isNumber = next.kind === 'number';
+        if (!isBareWord && !isNumber) break;
+        text += ` ${(this.next() as { value: string }).value}`;
+      }
+      return text;
     }
 
     if (token.kind === 'op' && token.value === '[') {

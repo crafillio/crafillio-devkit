@@ -258,8 +258,37 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
             <div className="warn-box" style={{ margin: 0 }}>
               <ShieldAlert size={13} style={{ verticalAlign: -2, marginRight: 6 }} />
               With verification off, every response can be read and altered in transit by anything
-              between you and the server. Use it for a local or staging box, not against production.
-              Trusting a CA below is the safer way to work with a private root.
+              between you and the server — for every host, not just the one you were trying to
+              reach. Prefer the ignore list below, which scopes it to the hosts you name.
+            </div>
+          )}
+
+          <div className="field">
+            <label>Ignore TLS errors for these hosts</label>
+            <input
+              className="input input-mono"
+              value={(tls.ignoreHosts ?? []).join(', ')}
+              placeholder="staging.internal, *.dev.local, localhost"
+              onChange={(e) =>
+                setTls({
+                  ...tls,
+                  ignoreHosts: e.target.value.split(',').map((h) => h.trim()).filter(Boolean),
+                })
+              }
+            />
+            <span className="hint">
+              Comma separated, same matching as the proxy bypass list: a leading <code>*.</code>{' '}
+              covers subdomains. These hosts skip certificate checks even while verification stays
+              on everywhere else — which is usually what you actually want, rather than turning it
+              off for everything because one staging box has a self-signed certificate.
+            </span>
+          </div>
+
+          {(tls.ignoreHosts ?? []).length > 0 && tls.verify && (
+            <div className="warn-box" style={{ margin: 0 }}>
+              <ShieldAlert size={13} style={{ verticalAlign: -2, marginRight: 6 }} />
+              Traffic to {(tls.ignoreHosts ?? []).join(', ')} is not verified and can be read or
+              altered in transit. Everything else is still checked.
             </div>
           )}
 

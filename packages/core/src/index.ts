@@ -73,6 +73,7 @@ export type {
   RunResult,
 } from './workflow/types.js';
 
+export { tlsIgnored } from './store/settings.js';
 export { evaluateCondition, checkCondition, isTruthy } from './workflow/condition.js';
 export { importCurl, exportCurl } from './interop/curl.js';
 export { importPostmanCollection } from './interop/postman.js';

@@ -57,6 +57,15 @@ export interface ClientCertificate {
 export interface TlsSettings {
   /** Off is the equivalent of Postman's "SSL certificate verification". */
   verify: boolean;
+  /**
+   * Hosts whose certificate is not checked, even while `verify` is on.
+   *
+   * A scalpel instead of the global switch: a staging box with a self-signed
+   * certificate is the usual reason people turn verification off entirely, and
+   * then leave it off against production. Supports a leading wildcard, e.g.
+   * `staging.internal`, `*.dev.local`.
+   */
+  ignoreHosts: string[];
   /** Extra CA bundle in PEM form, for private roots. */
   caPath: string;
   certificates: ClientCertificate[];
@@ -81,6 +90,7 @@ export const DEFAULT_SETTINGS: Settings = {
     bypass: ['localhost', '127.0.0.1', '::1'],
   },
   tls: {
+    ignoreHosts: [],
     verify: true,
     caPath: '',
     certificates: [],
@@ -99,6 +109,11 @@ export function isBypassed(host: string, bypass: string[]): boolean {
     }
     return target === pattern;
   });
+}
+
+/** True when a host is on the TLS ignore list. Same wildcard rules as bypass. */
+export function tlsIgnored(host: string, ignoreHosts: string[] | undefined): boolean {
+  return isBypassed(host, ignoreHosts ?? []);
 }
 
 /** Picks the client certificate configured for a host, if any. */
