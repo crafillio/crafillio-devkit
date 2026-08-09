@@ -41,14 +41,72 @@ const TO_OBJECT_OPTIONS: protobuf.IConversionOptions = {
   oneofs: true,
 };
 
+/**
+ * Rejects enum values that protobuf.js would quietly discard.
+ *
+ * `fromObject` accepts an unknown enum name by leaving the field unset, so a
+ * typo would be dropped rather than reported — the request would go out
+ * missing a value the user believed they had sent. Everything else in the tool
+ * refuses to paper over input like that, so this walks the message and says
+ * which names are actually valid.
+ */
+function checkEnums(type: protobuf.Type, value: unknown, path = ''): void {
+  if (value === null || typeof value !== 'object') return;
+
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    const field = type.fields[key];
+    if (!field) continue;
+    field.resolve();
+
+    const here = path ? `${path}.${key}` : key;
+    const entries = Array.isArray(raw) ? raw : [raw];
+
+    for (const entry of entries) {
+      if (field.resolvedType instanceof protobuf.Enum) {
+        if (typeof entry !== 'string') continue;
+        if (Object.prototype.hasOwnProperty.call(field.resolvedType.values, entry)) continue;
+        // A numeric string is fine — fromObject handles it.
+        if (entry.trim() !== '' && Number.isFinite(Number(entry))) continue;
+        const valid = Object.keys(field.resolvedType.values).join(', ');
+        throw new Error(
+          `"${entry}" is not a value of enum ${field.resolvedType.name} at "${here}". ` +
+            `Valid values: ${valid}.`,
+        );
+      } else if (field.resolvedType instanceof protobuf.Type) {
+        checkEnums(field.resolvedType, entry, here);
+      }
+    }
+  }
+}
+
 function codecFor(method: protobuf.Method) {
   const requestType = method.resolvedRequestType!;
   const responseType = method.resolvedResponseType!;
 
   const serialize = (obj: unknown): Buffer => {
-    const err = requestType.verify(obj as object);
+    // Convert before validating, not after.
+    //
+    // `verify` wants enums as numbers and 64-bit ints in its own shape, while
+    // `fromObject` is the thing that accepts the readable forms — enum names,
+    // numeric strings — that the prefilled editor produces and that anyone
+    // hand-writing a message would use. Validating first therefore rejected
+    // every message containing an enum, including the skeleton the app itself
+    // generated, with "enum value expected".
+    checkEnums(requestType, obj);
+
+    let converted: protobuf.Message;
+    try {
+      converted = requestType.fromObject(obj as Record<string, unknown>);
+    } catch (err) {
+      throw new Error(`Request does not match ${requestType.fullName}: ${(err as Error).message}`);
+    }
+
+    // Still verified, just against the converted message, so genuinely wrong
+    // input is still caught rather than failing deep inside encode().
+    const err = requestType.verify(converted);
     if (err) throw new Error(`Request does not match ${requestType.fullName}: ${err}`);
-    return Buffer.from(requestType.encode(requestType.fromObject(obj as object)).finish());
+
+    return Buffer.from(requestType.encode(converted).finish());
   };
 
   const deserialize = (buf: Buffer): Record<string, unknown> =>

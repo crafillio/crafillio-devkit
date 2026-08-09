@@ -28,8 +28,33 @@ export function GrpcPanel({ tab, onSend }: Props) {
     patchTab(tab.id, { request: { ...req, ...partial }, dirty: true } as Partial<GrpcTab>);
   };
 
+  const [methodFilter, setMethodFilter] = useState('');
+
   const service = tab.services.find((s) => s.name === req.service);
   const method = service?.methods.find((m) => m.name === req.method);
+
+  /**
+   * Services with their methods narrowed by the filter.
+   *
+   * Matching either the service or the method name means "Greeter" finds
+   * everything on that service, and "SayHello" finds it without knowing which
+   * service it is on — which is the whole point of the filter. The current
+   * selection is always kept, so filtering never blanks the picker.
+   */
+  const visibleServices = (() => {
+    const needle = methodFilter.trim().toLowerCase();
+    if (!needle) return tab.services;
+    return tab.services
+      .map((s) => ({
+        ...s,
+        methods: s.methods.filter(
+          (m) =>
+            `${s.name}/${m.name}`.toLowerCase().includes(needle) ||
+            (s.name === req.service && m.name === req.method),
+        ),
+      }))
+      .filter((s) => s.methods.length > 0);
+  })();
   const isStreamingRequest =
     method?.callType === 'client_stream' || method?.callType === 'bidi';
 
@@ -142,39 +167,42 @@ export function GrpcPanel({ tab, onSend }: Props) {
       </div>
 
       <div className="grpc-toolbar" style={{ paddingTop: 0 }}>
-        <select
-          className="select"
-          style={{ flex: 1, minWidth: 160 }}
-          value={req.service}
-          onChange={(e) =>
-            selectMethod(
-              e.target.value,
-              tab.services.find((s) => s.name === e.target.value)?.methods[0]?.name ?? '',
-            )
-          }
-        >
-          <option value="">
-            {tab.services.length ? 'Select a service…' : 'No services — run Discover'}
-          </option>
-          {tab.services.map((s) => (
-            <option key={s.name} value={s.name}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+        {/* One picker, grouped by service, instead of two dependent ones.
+            A method belongs to exactly one service, so making the user choose
+            the service first was asking for information the choice already
+            implies — and left the method list disabled until they did. */}
+        <input
+          className="input"
+          style={{ flex: '0 1 170px', minWidth: 110 }}
+          value={methodFilter}
+          placeholder="Filter methods…"
+          spellCheck={false}
+          title="Narrows the list below. Useful when reflection returns hundreds of methods."
+          onChange={(e) => setMethodFilter(e.target.value)}
+        />
 
         <select
           className="select"
-          style={{ flex: 1, minWidth: 160 }}
-          value={req.method}
-          onChange={(e) => selectMethod(req.service, e.target.value)}
-          disabled={!service}
+          style={{ flex: 1, minWidth: 220 }}
+          value={req.service && req.method ? `${req.service}/${req.method}` : ''}
+          title="Every method, grouped by the service it belongs to"
+          onChange={(e) => {
+            const [svc, ...rest] = e.target.value.split('/');
+            if (svc && rest.length) selectMethod(svc, rest.join('/'));
+          }}
         >
-          <option value="">Select a method…</option>
-          {service?.methods.map((m) => (
-            <option key={m.name} value={m.name}>
-              {m.name}
-            </option>
+          <option value="">
+            {tab.services.length ? 'Select a method…' : 'No services — run Discover'}
+          </option>
+          {visibleServices.map((s) => (
+            <optgroup key={s.name} label={s.name}>
+              {s.methods.map((m) => (
+                <option key={`${s.name}/${m.name}`} value={`${s.name}/${m.name}`}>
+                  {m.name}
+                  {m.callType === 'unary' ? '' : `  · ${m.callType.replace('_', ' ')}`}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
 

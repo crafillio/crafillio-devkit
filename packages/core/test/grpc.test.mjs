@@ -148,6 +148,38 @@ try {
   check('invalid JSON reports position', e.message.includes('not valid JSON'), e.message);
 }
 
+
+/* ---- Enums by name, as the prefilled editor writes them ---- */
+
+// The skeleton renders enums as names for readability, so the message the app
+// hands you must be sendable as-is. It was not: validation ran before
+// name-to-number conversion and rejected every enum field with
+// "enum value expected" — including the app's own generated skeleton.
+{
+  const send = (payload) =>
+    run(protoSource, 'demo.v1.Greeter', 'SayHello', [JSON.stringify(payload)]);
+  const ok = (ev) => ev.find((e) => e.type === 'status')?.codeName === 'OK';
+  const errs = (ev) => JSON.stringify(ev.filter((e) => e.type === 'error'));
+
+  let ev = await send(JSON.parse(greeter.methods.find((m) => m.name === 'SayHello').inputExample));
+  check('the generated skeleton sends as-is', ok(ev), errs(ev));
+
+  ev = await send({ name: 'Ada', tone: 'TONE_FORMAL' });
+  check('an enum given by name is accepted', ok(ev), errs(ev));
+
+  ev = await send({ name: 'Ada', tone: 1 });
+  check('  ...and a numeric enum still works', ok(ev), errs(ev));
+
+  let bogus;
+  try {
+    bogus = errs(await send({ name: 'Ada', tone: 'NOT_A_TONE' }));
+  } catch (e) { bogus = e.message; }
+  check('  ...while a bogus enum name is still rejected', /NOT_A_TONE|enum|invalid/i.test(bogus), bogus);
+
+  ev = await send({ name: 'Ada', nested: { note: 'x', big: '9007199254740993' } });
+  check('  ...and a 64-bit int given as a string is accepted', ok(ev), errs(ev));
+}
+
 console.log(`\ngRPC: ${pass} passed, ${fail} failed`);
 server.forceShutdown();
 process.exit(fail ? 1 : 0);
