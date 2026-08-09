@@ -96,7 +96,51 @@ check('an earlier output also flowed into a later URL',
 check('the polling step settled on a terminal state', result.context.state === 'shipped');
 check('the token is still in the final context', result.context.token === TOKEN);
 
+
+/* ---- Re-running one step on its own ---- */
+
+// The point of a single-step rerun is iterating on a request without repeating
+// the login before it, so the seeded context has to carry the token.
+seen.length = 0;
+const single = await runWorkflow(
+  { id: 'w', name: 'Auth chain', description: '', edges: [], createdAt: '', updatedAt: '',
+    steps: [
+      step({ id: 's1', name: 'Authenticate', request: rest({ method: 'POST', url: `${base}/auth` }),
+        outputs: [{ id: 'o', name: 'token', path: 'access_token' }] }),
+      step({ id: 's2', name: 'Create order', request: rest({ method: 'POST', url: `${base}/orders`, headers: [authHeader] }),
+        outputs: [{ id: 'o', name: 'orderId', path: 'orderId' }] }),
+    ] },
+  {}, () => {},
+  { onlyStepId: 's2', seedContext: { token: TOKEN } },
+).done;
+
+check('a single step can be run on its own', single.steps.length === 1, `ran ${single.steps.length} steps`);
+check('  ...and it is the one asked for', single.steps[0].stepId === 's2');
+check('  ...succeeding with the seeded token', single.steps[0].status === 'success', single.steps[0].error);
+check('  ...without re-issuing a token', issued === 1, `issued=${issued}`);
+check('  ...and it really carried the token', seen.every((s) => s.supplied === TOKEN), JSON.stringify(seen));
+
+// Without the seed, the step should fail loudly rather than send an empty token.
+const unseeded = await runWorkflow(
+  { id: 'w', name: 'x', description: '', edges: [], createdAt: '', updatedAt: '',
+    steps: [step({ id: 's2', name: 'Create order', request: rest({ method: 'POST', url: `${base}/orders`, headers: [authHeader] }) })] },
+  {}, () => {}, { onlyStepId: 's2' },
+).done;
+check('without a seed the missing variable is reported',
+  unseeded.steps[0].status === 'failed' && /token/.test(unseeded.steps[0].error ?? ''),
+  unseeded.steps[0].error);
+
+let gone = null;
+try {
+  await runWorkflow(
+    { id: 'w', name: 'x', description: '', edges: [], createdAt: '', updatedAt: '', steps: [] },
+    {}, () => {}, { onlyStepId: 'nope' },
+  ).done;
+} catch (e) { gone = e.message; }
+check('asking for a step that is gone says so', /no longer part/.test(gone ?? ''), String(gone));
+
+console.log(`\nSingle-step rerun: ${pass} passed, ${fail} failed`);
+
 server.close();
 closeRestAgents?.();
-console.log(`\nAuth chain: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -58,6 +58,7 @@ export type {
 export * as workflows from './store/workflows.js';
 export { runWorkflow, orderSteps, type WorkflowRun } from './workflow/engine.js';
 export { renderReport } from './workflow/report.js';
+export type { RunOptions } from './workflow/engine.js';
 export { getPath, suggestPaths, stringifyValue } from './workflow/extract.js';
 export type {
   Workflow,

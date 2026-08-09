@@ -238,7 +238,16 @@ export interface CrafillioApi {
      * of the language, not a copy that can drift from the one that runs.
      */
     checkCondition(expression: string): Promise<string | null>;
-    run(workflow: Workflow): Promise<string>;
+    /**
+     * Runs a workflow, or one step of it.
+     *
+     * `seedContext` carries a previous run's values so a single step can be
+     * retried on its own — without it, a step needing {{token}} could not be.
+     */
+    run(
+      workflow: Workflow,
+      options?: { onlyStepId?: string; seedContext?: Record<string, string> },
+    ): Promise<string>;
     cancel(runId: string): Promise<void>;
     onEvent(listener: (event: WorkflowEvent) => void): () => void;
     /** Writes the HTML report and returns its path. Null when cancelled. */

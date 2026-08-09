@@ -287,10 +287,25 @@ export interface WorkflowRun {
 }
 
 /** Starts a workflow. Events stream as it progresses. */
+/** Narrows a run to a single step, seeded from an earlier run's context. */
+export interface RunOptions {
+  /** Run only this step. The rest are not executed or reported. */
+  onlyStepId?: string;
+  /**
+   * Values from a previous run, layered over the environment.
+   *
+   * Re-running one step in isolation is only useful if what earlier steps
+   * produced is still available — a step that needs {{token}} cannot be
+   * retried on its own otherwise.
+   */
+  seedContext?: Record<string, string>;
+}
+
 export function runWorkflow(
   workflow: Workflow,
   environment: Record<string, string>,
   onEvent: (event: WorkflowEvent) => void,
+  options: RunOptions = {},
 ): WorkflowRun {
   const runId = randomUUID();
   const startedAt = new Date().toISOString();
@@ -300,16 +315,30 @@ export function runWorkflow(
   const elapsed = (from = started): number => Number(process.hrtime.bigint() - from) / 1e6;
 
   const execute = async (): Promise<RunResult> => {
-    onEvent({ type: 'run-start', runId, totalSteps: workflow.steps.length });
+    onEvent({
+      type: 'run-start',
+      runId,
+      totalSteps: options.onlyStepId ? 1 : workflow.steps.length,
+    });
 
-    // Environment variables seed the context; step outputs layer on top.
-    const context: Record<string, string> = { ...environment };
+    // Environment variables seed the context; a previous run's values layer
+    // over them, and this run's step outputs over those.
+    const context: Record<string, string> = { ...environment, ...(options.seedContext ?? {}) };
     const states = new Map<string, StepState>();
     // gRPC has no RestResponse, so its decoded message is kept alongside.
     const grpcResults = new Map<string, unknown>();
     const records: StepRecord[] = [];
 
-    const sequence = orderSteps(workflow);
+    const ordered = orderSteps(workflow);
+    // A single-step run keeps the step's real index, so the UI highlights the
+    // same stage on the rail rather than renumbering it to 1.
+    const sequence = options.onlyStepId
+      ? ordered.filter((step) => step.id === options.onlyStepId)
+      : ordered;
+
+    if (options.onlyStepId && sequence.length === 0) {
+      throw new Error('That step is no longer part of this workflow.');
+    }
 
     for (const [index, step] of sequence.entries()) {
       if (cancelled) {
@@ -655,6 +684,7 @@ export function runWorkflow(
         // Everything after a hard failure is reported as skipped, so the run
         // reads as a complete picture rather than trailing off.
         for (const [laterIndex, later] of sequence.entries()) {
+          // Nothing follows in a single-step run.
           if (laterIndex <= index) continue;
           const skippedRecord = skipped(later, laterIndex, 'An earlier step failed.');
           records.push(skippedRecord);

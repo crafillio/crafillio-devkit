@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Copy,
   Camera,
   AlertCircle,
   ArrowDown,
@@ -208,6 +209,66 @@ export function WorkflowPanel() {
 
     patch({ steps: [...current.steps, step] });
     setSelectedStepId(step.id);
+  };
+
+  /**
+   * Copies a step, including its inputs, outputs and repeat policy.
+   *
+   * The copy is inserted straight after the original and given fresh ids —
+   * sharing an id would make the canvas edges and the run records ambiguous.
+   * Edges are deliberately not copied: which way a duplicate should be wired
+   * is a decision, and guessing it wrong is worse than leaving it unwired.
+   */
+  const cloneStep = (stepId: string): void => {
+    if (!current) return;
+    const source = current.steps.find((s) => s.id === stepId);
+    if (!source) return;
+
+    const copy: WorkflowStep = {
+      ...structuredClone(source),
+      id: uid('step'),
+      name: `${source.name} (copy)`,
+      inputs: source.inputs.map((i) => ({ ...i, id: uid('in') })),
+      outputs: source.outputs.map((o) => ({ ...o, id: uid('out') })),
+      // Offset so the copy does not land exactly on top of the original.
+      position: source.position
+        ? { x: source.position.x + 36, y: source.position.y + 36 }
+        : undefined,
+    };
+
+    const at = current.steps.findIndex((s) => s.id === stepId);
+    const steps = [...current.steps];
+    steps.splice(at + 1, 0, copy);
+    patch({ steps });
+    setSelectedStepId(copy.id);
+    toast('success', `Copied to "${copy.name}"`);
+  };
+
+  /**
+   * Re-runs one step without the ones before it.
+   *
+   * The last run's context is seeded in, so a step that needs {{token}} still
+   * has it — otherwise a rerun would just fail on an unresolved variable and
+   * the feature would only work for the first step.
+   */
+  const runStep = async (stepId: string): Promise<void> => {
+    if (!current) return;
+    if (dirty) await save();
+
+    const seedContext = result?.context ?? {};
+    setRecords((previous) => {
+      // Clear only this step's record; the others still describe the last run.
+      const next = new Map(previous);
+      next.delete(stepId);
+      return next;
+    });
+    setRunning(true);
+    try {
+      runId.current = await window.crafillio.workflow.run(current, { onlyStepId: stepId, seedContext });
+    } catch (err) {
+      setRunning(false);
+      toast('error', (err as Error).message);
+    }
   };
 
   const run = async (): Promise<void> => {
@@ -456,6 +517,9 @@ export function WorkflowPanel() {
               allSteps={orderedSteps}
               record={records.get(selectedStep.id) ?? null}
               onChange={(next) => patchStep(selectedStep.id, next)}
+              onClone={() => cloneStep(selectedStep.id)}
+              onRunStep={() => void runStep(selectedStep.id)}
+              running={running}
               onRemove={async () => {
                 const ok = await askConfirm({
                   title: 'Remove step',
@@ -515,12 +579,18 @@ function StepEditor({
   allSteps,
   record,
   onChange,
+  onClone,
+  onRunStep,
+  running,
   onRemove,
 }: {
   step: WorkflowStep;
   allSteps: WorkflowStep[];
   record: StepRecord | null;
   onChange: (next: Partial<WorkflowStep>) => void;
+  onClone: () => void;
+  onRunStep: () => void;
+  running: boolean;
   onRemove: () => void;
 }) {
   const [tab, setTab] = useState<'headers' | 'body' | 'inputs' | 'outputs' | 'repeat'>('headers');
@@ -640,7 +710,24 @@ function StepEditor({
         </label>
 
         <button
-          className="btn btn-sm btn-danger"
+          className="btn btn-sm"
+          title="Run only this step, reusing values from the last run"
+          onClick={onRunStep}
+          disabled={running}
+        >
+          <Play size={12} /> Run step
+        </button>
+
+        <button
+          className="btn btn-sm btn-icon"
+          title="Duplicate this step, with its inputs, outputs and repeat settings"
+          onClick={onClone}
+        >
+          <Copy size={12} />
+        </button>
+
+        <button
+          className="btn btn-sm btn-danger btn-icon"
           title="Delete this step"
           onClick={onRemove}
         >

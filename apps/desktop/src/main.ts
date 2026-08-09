@@ -399,14 +399,17 @@ function registerHandlers(): void {
   handle('workflow:save', workflows.saveWorkflow);
   handle('workflow:remove', workflows.deleteWorkflow);
 
-  handle('workflow:run', async (workflow: Parameters<typeof runWorkflow>[0]) => {
+  handle('workflow:run', async (
+    workflow: Parameters<typeof runWorkflow>[0],
+    options: Parameters<typeof runWorkflow>[3] = {},
+  ) => {
     const push = (event: unknown): void => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('workflow:event', event);
     };
     // Environment variables seed the workflow context, exactly as they do for
     // a single request.
     const env = await environments.activeVariables();
-    const run = runWorkflow(workflow, env, push);
+    const run = runWorkflow(workflow, env, push, options);
     activeWorkflowRuns.set(run.runId, run);
     void run.done.finally(() => activeWorkflowRuns.delete(run.runId));
     return run.runId;
