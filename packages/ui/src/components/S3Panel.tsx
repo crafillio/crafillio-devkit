@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  FolderPlus,
   ChevronRight,
   Download,
   File,
@@ -23,6 +24,9 @@ export function S3Panel({ tab }: { tab: S3Tab }) {
   const toast = useStore((s) => s.toast);
 
   const [buckets, setBuckets] = useState<S3Bucket[]>([]);
+  // Typed separately from the tab so a half-typed name does not trigger a
+  // listing on every keystroke.
+  const [bucketDraft, setBucketDraft] = useState(tab.bucket);
   const [listing, setListing] = useState<S3ListResult | null>(null);
   const [detail, setDetail] = useState<S3ObjectDetail | null>(null);
   const [busy, setBusy] = useState(false);
@@ -35,6 +39,40 @@ export function S3Panel({ tab }: { tab: S3Tab }) {
   const patch = (partial: Partial<S3Tab>): void => patchTab(tab.id, partial as never);
 
   /* -------------------------------------------------------------- */
+
+  useEffect(() => {
+    setBucketDraft(tab.bucket);
+  }, [tab.bucket, tab.id]);
+
+  /** Switches to a bucket, but only once the name has settled. */
+  const commitBucket = (name: string): void => {
+    const next = name.trim();
+    if (next === tab.bucket) return;
+    patch({ bucket: next, prefix: '', selectedKey: undefined, dirty: true });
+    setDetail(null);
+  };
+
+  const createBucket = async (): Promise<void> => {
+    if (!connection) return;
+    const name = await askName({
+      title: 'New bucket',
+      label: 'Bucket name',
+      placeholder: 'my-application-uploads',
+      defaultValue: '',
+    });
+    if (!name) return;
+    setBusy(true);
+    try {
+      await window.crafillio.s3.createBucket(connection, name.trim());
+      toast('success', `Created "${name.trim()}"`);
+      await loadBuckets();
+      commitBucket(name.trim());
+    } catch (err) {
+      toast('error', (err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const loadBuckets = useCallback(async () => {
     if (!connection) return;
@@ -222,22 +260,40 @@ export function S3Panel({ tab }: { tab: S3Tab }) {
           ))}
         </select>
 
-        <select
-          className="select"
-          style={{ minWidth: 180 }}
-          value={tab.bucket}
-          onChange={(e) => {
-            patch({ bucket: e.target.value, prefix: '', selectedKey: undefined, dirty: true });
-            setDetail(null);
+        {/* An input with a datalist rather than a select: plenty of IAM
+            policies grant access to one bucket while denying
+            s3:ListAllMyBuckets, and a dropdown fed only by the listing locks
+            those users out of a bucket they can actually read. Pick from the
+            list when it is available, type the name when it is not. */}
+        <input
+          className="input"
+          style={{ minWidth: 200 }}
+          list="s3-buckets"
+          value={bucketDraft}
+          placeholder="Bucket name — pick one or type it"
+          title="Choose a bucket, or type its name if it is not listed"
+          spellCheck={false}
+          onChange={(e) => setBucketDraft(e.target.value)}
+          onBlur={() => commitBucket(bucketDraft)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commitBucket(bucketDraft);
+            else if (e.key === 'Escape') setBucketDraft(tab.bucket);
           }}
-        >
-          <option value="">Select a bucket…</option>
+        />
+        <datalist id="s3-buckets">
           {buckets.map((b) => (
-            <option key={b.name} value={b.name}>
-              {b.name}
-            </option>
+            <option key={b.name} value={b.name} />
           ))}
-        </select>
+        </datalist>
+
+        <button
+          className="btn btn-icon"
+          title="Create a new bucket"
+          disabled={!connection || busy}
+          onClick={createBucket}
+        >
+          <FolderPlus size={14} />
+        </button>
 
         <button
           className="btn btn-icon"
@@ -287,13 +343,30 @@ export function S3Panel({ tab }: { tab: S3Tab }) {
         </div>
       )}
 
-      {error && <div className="error-box">{error}</div>}
+      {error && (
+        <div className="error-box">
+          {error}
+          {/* Denied listing is the common case rather than a broken setup:
+              plenty of policies grant a single bucket and refuse
+              s3:ListAllMyBuckets. Say what to do instead of leaving an empty
+              dropdown and a raw AWS error. */}
+          {/access denied|forbidden|not authorized|listallmybuckets/i.test(error) && (
+            <div style={{ marginTop: 6 }}>
+              These credentials cannot list buckets. That is often deliberate — type the bucket
+              name into the field above and it will open directly, provided the policy allows
+              reading that bucket.
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="s3-layout">
         <div className="s3-main">
           <div className="tab-body">
             {!tab.bucket ? (
-              <div className="placeholder">Pick a bucket to start browsing.</div>
+              <div className="placeholder">
+                Pick a bucket to start browsing — or type its name above if it is not listed.
+              </div>
             ) : (
               <table className="obj-table">
                 <thead>

@@ -131,6 +131,25 @@ try {
   check('missing bucket friendly error', e.message.includes('bucket does not exist'), e.message);
 }
 
+/* ---- Reaching a bucket without listing buckets ---- */
+
+// The reason the UI lets you type a name: a policy can allow reading one
+// bucket while refusing ListAllMyBuckets. Nothing in the object paths should
+// depend on the listing having happened.
+{
+  const named = 'typed-bucket-' + Date.now().toString(36);
+  await s3.createBucket(conn, named);
+  await s3.putText(conn, named, 'hello.txt', 'typed straight in');
+
+  const listing = await s3.listObjects(conn, named, '');
+  check('a bucket reached by name lists its objects',
+    listing.objects.some((o) => o.key === 'hello.txt'), JSON.stringify(listing.objects));
+
+  const head = await s3.headObject(conn, named, 'hello.txt');
+  check('  ...and its metadata is readable', head.key === 'hello.txt');
+}
+
 console.log(`\nS3: ${pass} passed, ${fail} failed`);
 await server.close();
 process.exit(fail ? 1 : 0);
+
