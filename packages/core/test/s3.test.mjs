@@ -149,6 +149,33 @@ try {
   check('  ...and its metadata is readable', head.key === 'hello.txt');
 }
 
+
+/* ---- Errors that say what to do ---- */
+
+// The class that used to fall through as raw Node text. A dead port is the
+// exact shape of the "connect ECONNREFUSED" message a wrong endpoint produces.
+{
+  const dead = { ...conn, endpoint: 'http://127.0.0.1:1' };
+  let msg = '';
+  try { await s3.listObjects(dead, 'anything', ''); } catch (e) { msg = e.message; }
+  check('a dead endpoint explains itself', /nothing is listening/i.test(msg), msg);
+  check('  ...and names the endpoint it tried', /127\.0\.0\.1:1/.test(msg), msg);
+  check('  ...instead of leaking ECONNREFUSED', !/ECONNREFUSED/.test(msg), msg);
+
+  const nohost = { ...conn, endpoint: 'http://no-such-host.invalid:9000' };
+  msg = '';
+  try { await s3.listBuckets(nohost); } catch (e) { msg = e.message; }
+  check('an unresolvable host explains itself', /could not be resolved/i.test(msg), msg);
+
+  msg = '';
+  try { await s3.listObjects(conn, 'definitely-not-here', ''); } catch (e) { msg = e.message; }
+  check('a missing bucket still reads clearly', /does not exist/i.test(msg), msg);
+
+  msg = '';
+  try { await s3.createBucket(conn, 'Invalid_Bucket_Name'); } catch (e) { msg = e.message; }
+  check('an invalid bucket name says what is allowed', msg.length > 0, msg);
+}
+
 console.log(`\nS3: ${pass} passed, ${fail} failed`);
 await server.close();
 process.exit(fail ? 1 : 0);

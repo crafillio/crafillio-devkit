@@ -78,21 +78,78 @@ export function resetS3Clients(): void {
 }
 
 /** SDK errors are verbose and bury the cause; surface the useful part. */
-function rethrow(err: unknown, action: string): never {
-  const e = err as Error & { name?: string; $metadata?: { httpStatusCode?: number } };
+/**
+ * Turns an SDK or socket error into something that says what to do.
+ *
+ * Two classes arrive here and only one used to be handled. AWS returns named
+ * errors — NoSuchBucket, AccessDenied — which mapped cleanly. But a wrong
+ * endpoint never reaches AWS at all: it fails at the socket, and those came
+ * through as raw Node text like "connect ECONNREFUSED 127.0.0.1:1", which
+ * names a port and explains nothing. Those are now translated too, and the
+ * endpoint is quoted so it is obvious what was actually contacted.
+ */
+function rethrow(err: unknown, action: string, conn?: S3Connection): never {
+  const e = err as Error & {
+    name?: string;
+    code?: string;
+    $metadata?: { httpStatusCode?: number };
+    cause?: { code?: string; message?: string };
+  };
   const status = e.$metadata?.httpStatusCode;
+  const where = conn?.endpoint ? ` at ${conn.endpoint}` : '';
+
+  // Socket-level failures: the request never got as far as S3.
+  const socket = e.code ?? e.cause?.code ?? '';
+  const socketHint: Record<string, string> = {
+    ECONNREFUSED:
+      `Nothing is listening${where}. Check the endpoint and port, and that the service is running.`,
+    ENOTFOUND: `That host could not be resolved${where}. Check the endpoint for a typo.`,
+    EHOSTUNREACH: `That host is unreachable${where}. Check the network or a VPN.`,
+    ECONNRESET: `The connection was reset${where}. An HTTPS endpoint reached over http:// does this.`,
+    ETIMEDOUT: `Timed out reaching the endpoint${where}. A firewall or the wrong port will do this.`,
+    EPROTO: `TLS handshake failed${where}. Check whether the endpoint is http:// rather than https://.`,
+    DEPTH_ZERO_SELF_SIGNED_CERT:
+      `The endpoint${where} presents a self-signed certificate. Tick "Ignore TLS" on the ` +
+      'connection, or trust the CA under Network settings.',
+    SELF_SIGNED_CERT_IN_CHAIN:
+      `The certificate chain${where} is self-signed. Trust the CA under Network settings, or ` +
+      'tick "Ignore TLS" on the connection.',
+    UNABLE_TO_VERIFY_LEAF_SIGNATURE:
+      `The certificate${where} could not be verified. Trust the CA under Network settings.`,
+    ERR_TLS_CERT_ALTNAME_INVALID:
+      `The certificate${where} is for a different host name. Path-style addressing usually fixes ` +
+      'this for MinIO and other S3-compatible servers.',
+  };
+  if (socketHint[socket]) {
+    throw new Error(`${action} failed: ${socketHint[socket]}`);
+  }
 
   const hint: Record<string, string> = {
-    NoSuchBucket: 'That bucket does not exist.',
-    AccessDenied: 'Access denied — check the key’s IAM policy.',
+    NoSuchBucket: 'That bucket does not exist, or it is in a different region.',
+    NoSuchKey: 'That object does not exist.',
+    AccessDenied:
+      'Access denied. The credentials are valid but the policy does not allow this action ' +
+      'on this bucket.',
     InvalidAccessKeyId: 'That access key ID is not recognised.',
     SignatureDoesNotMatch: 'Signature mismatch — check the secret access key.',
-    NotFound: 'Not found.',
-    NetworkingError: 'Could not reach the endpoint.',
-    PermanentRedirect: 'Wrong region for this bucket, or path-style addressing is required.',
+    InvalidBucketName:
+      'That is not a valid bucket name: lower case, 3–63 characters, no underscores.',
+    BucketAlreadyOwnedByYou: 'You already own a bucket with that name.',
+    BucketAlreadyExists: 'That bucket name is taken — S3 bucket names are globally unique.',
+    BucketNotEmpty: 'That bucket still contains objects. Delete them first.',
+    NotFound: 'Not found — check the bucket name and the key.',
+    NetworkingError: `Could not reach the endpoint${where}.`,
+    TimeoutError: `Timed out reaching the endpoint${where}.`,
+    PermanentRedirect:
+      'Wrong region for this bucket, or path-style addressing is required. Check the region ' +
+      'on the connection, and try turning path-style on.',
+    AuthorizationHeaderMalformed:
+      'The region on this connection does not match the bucket\'s region.',
+    IllegalLocationConstraintException:
+      'The region on this connection does not match the bucket\'s region.',
   };
 
-  const detail = hint[e.name ?? ''] ?? e.message;
+  const detail = hint[e.name ?? ''] ?? `${e.message}${where}`;
   throw new Error(`${action} failed${status ? ` (HTTP ${status})` : ''}: ${detail}`);
 }
 
@@ -108,7 +165,7 @@ export async function listBuckets(conn: S3Connection): Promise<S3Bucket[]> {
       createdAt: b.CreationDate?.toISOString(),
     }));
   } catch (err) {
-    return rethrow(err, 'Listing buckets');
+    return rethrow(err, 'Listing buckets', conn);
   }
 }
 
@@ -125,7 +182,7 @@ export async function createBucket(conn: S3Connection, bucket: string): Promise<
       }),
     );
   } catch (err) {
-    rethrow(err, `Creating bucket "${bucket}"`);
+    rethrow(err, `Creating bucket "${bucket}"`, conn);
   }
 }
 
@@ -133,7 +190,7 @@ export async function deleteBucket(conn: S3Connection, bucket: string): Promise<
   try {
     await clientFor(conn).send(new DeleteBucketCommand({ Bucket: bucket }));
   } catch (err) {
-    rethrow(err, `Deleting bucket "${bucket}"`);
+    rethrow(err, `Deleting bucket "${bucket}"`, conn);
   }
 }
 
@@ -178,7 +235,7 @@ export async function listObjects(
       isTruncated: Boolean(res.IsTruncated),
     };
   } catch (err) {
-    return rethrow(err, `Listing "${bucket}"`);
+    return rethrow(err, `Listing "${bucket}"`, conn);
   }
 }
 
@@ -206,7 +263,7 @@ export async function headObject(
       metadata: res.Metadata ?? {},
     };
   } catch (err) {
-    return rethrow(err, `Reading metadata for "${key}"`);
+    return rethrow(err, `Reading metadata for "${key}"`, conn);
   }
 }
 
@@ -251,7 +308,7 @@ export async function updateMetadata(
       }),
     );
   } catch (err) {
-    rethrow(err, `Updating metadata for "${key}"`);
+    rethrow(err, `Updating metadata for "${key}"`, conn);
   }
 
   return headObject(conn, bucket, key);
@@ -304,7 +361,7 @@ export async function uploadFile(
     const res = await upload.done();
     return { key: finalKey, size: info.size, etag: res.ETag?.replace(/"/g, '') };
   } catch (err) {
-    return rethrow(err, `Uploading "${finalKey}"`);
+    return rethrow(err, `Uploading "${finalKey}"`, conn);
   }
 }
 
@@ -321,7 +378,7 @@ export async function putText(
       new PutObjectCommand({ Bucket: bucket, Key: key, Body: content, ContentType: contentType }),
     );
   } catch (err) {
-    rethrow(err, `Writing "${key}"`);
+    rethrow(err, `Writing "${key}"`, conn);
   }
 }
 
@@ -348,7 +405,7 @@ export async function downloadFile(
     await pipeline(body, createWriteStream(destPath));
     return { path: destPath, size: total || loaded };
   } catch (err) {
-    return rethrow(err, `Downloading "${key}"`);
+    return rethrow(err, `Downloading "${key}"`, conn);
   }
 }
 
@@ -374,7 +431,7 @@ export async function previewObject(
       return { text: buf.toString('base64'), truncated: buf.byteLength >= maxBytes, binary: true };
     }
   } catch (err) {
-    return rethrow(err, `Previewing "${key}"`);
+    return rethrow(err, `Previewing "${key}"`, conn);
   }
 }
 
@@ -390,7 +447,7 @@ export async function deleteObject(
   try {
     await clientFor(conn).send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
   } catch (err) {
-    rethrow(err, `Deleting "${key}"`);
+    rethrow(err, `Deleting "${key}"`, conn);
   }
 }
 
@@ -477,7 +534,7 @@ export async function presign(
         : new PutObjectCommand({ Bucket: bucket, Key: key });
     return await getSignedUrl(clientFor(conn), command, { expiresIn: expiresInSeconds });
   } catch (err) {
-    return rethrow(err, `Signing URL for "${key}"`);
+    return rethrow(err, `Signing URL for "${key}"`, conn);
   }
 }
 
