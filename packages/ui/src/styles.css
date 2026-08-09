@@ -2143,7 +2143,21 @@ kbd {
 
 .wf-name-field .input { font-weight: 600; }
 
-.wf-step-head { align-items: flex-end; }
+/* The editor pane is often narrow, and the header carries a name plus four
+   controls. Without wrapping, the name field was squeezed to 65px — narrower
+   than its own label. It now claims a usable width and the controls drop to a
+   second row when there is not room for them beside it. */
+.wf-step-head {
+  flex-wrap: wrap;
+  align-items: flex-end;
+  row-gap: 9px;
+}
+
+.wf-name-field { flex: 1 1 240px; min-width: 180px; }
+
+/* Keep the controls together as a group so they wrap as one, rather than the
+   delete button ending up alone on a line. */
+.wf-step-head > .inline-check { margin-left: auto; }
 
 /* ================================================================== */
 /* Polish                                                             */
