@@ -22,7 +22,7 @@ const notarize =
 module.exports = {
   appId: 'com.crafillio.app',
   productName: 'API Devkit',
-  copyright: 'Copyright © 2026 API Devkit',
+  copyright: 'Copyright © 2026 Amit Singh',
 
   directories: {
     output: 'release',
@@ -39,8 +39,9 @@ module.exports = {
 
   npmRebuild: false,
 
-  // Runs after the .app is assembled, before the DMG is built.
-  afterPack: 'build/adhoc-sign.cjs',
+  // Runs after the app directory is assembled, before the installer is built:
+  // strips unused media codecs, then re-signs macOS.
+  afterPack: 'build/after-pack.cjs',
 
   mac: {
     artifactName: 'APIDevkit-mac-${arch}.${ext}',
@@ -75,6 +76,13 @@ module.exports = {
 
   win: {
     artifactName: 'APIDevkit-windows-setup.${ext}',
+
+    // Written into the executable's VERSIONINFO. A binary with no company
+    // name and a vague description is part of what heuristic scanners weigh,
+    // and it is what a user sees in the SmartScreen dialog and the file's
+    // Properties tab. Free to get right; misleading to leave blank.
+    legalTrademarks: '',
+    verifyUpdateCodeSignature: false,
     target: [{ target: 'nsis', arch: ['x64', 'arm64'] }],
   },
 
