@@ -2349,3 +2349,9 @@ h2 { letter-spacing: -0.01em; }
    9.5px text. It sits on --surface-3, not --bg, which is what made the
    muted tier fall short here; --text-dim clears it on that background. */
 .subtab .count { color: var(--text-dim); }
+
+/* The bucket leads the connection's sub-line: two connections to the same
+   endpoint are otherwise identical in the list, which is the whole reason
+   the field exists. */
+.row-bucket { color: var(--s3); font-family: var(--font-mono); }
+.row-sub-sep { opacity: 0.5; }

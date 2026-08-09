@@ -914,6 +914,26 @@ function Connections({ onEdit }: { onEdit: (id: string | null) => void }) {
   const connections = useStore((s) => s.connections);
   const refresh = useStore((s) => s.refreshConnections);
   const newTab = useStore((s) => s.newTab);
+  const patchTab = useStore((s) => s.patchTab);
+  const activeTabId = useStore((s) => s.activeTabId);
+
+  /**
+   * Opens an S3 tab already pointed at this connection and its default bucket.
+   *
+   * Clicking a named connection and landing on an empty bucket picker is a
+   * step the user has already expressed a preference about.
+   */
+  const openS3 = (connection: { id: string; defaultBucket?: string }): void => {
+    newTab('s3');
+    // newTab sets the active tab synchronously, so the patch lands on it.
+    const id = useStore.getState().activeTabId;
+    if (!id) return;
+    patchTab(id, {
+      connectionId: connection.id,
+      bucket: connection.defaultBucket ?? '',
+      prefix: '',
+    } as never);
+  };
 
   return (
     <>
@@ -933,11 +953,30 @@ function Connections({ onEdit }: { onEdit: (id: string | null) => void }) {
         )}
 
         {connections.map((connection) => (
-          <div key={connection.id} className="tree-row" onClick={() => newTab('s3')}>
+          <div
+            key={connection.id}
+            className="tree-row"
+            title={
+              connection.defaultBucket
+                ? `${connection.name} — opens ${connection.defaultBucket}`
+                : connection.name
+            }
+            onClick={() => openS3(connection)}
+          >
             <Cloud size={13} style={{ color: 'var(--s3)', flexShrink: 0 }} />
             <span className="row-label">
               {connection.name}
-              <div className="row-sub">{connection.endpoint || `AWS · ${connection.region}`}</div>
+              {/* Bucket first when there is one: two connections to the same
+                  endpoint are otherwise indistinguishable in this list. */}
+              <div className="row-sub">
+                {connection.defaultBucket ? (
+                  <>
+                    <span className="row-bucket">{connection.defaultBucket}</span>
+                    <span className="row-sub-sep"> · </span>
+                  </>
+                ) : null}
+                {connection.endpoint || `AWS · ${connection.region}`}
+              </div>
             </span>
             <button
               className="row-action"

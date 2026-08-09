@@ -90,6 +90,22 @@ export function ConnectionModal({ connectionId, onClose }: Props) {
       </div>
 
       <div className="field">
+        <label>Default bucket (optional)</label>
+        <input
+          className="input input-mono"
+          value={form.defaultBucket ?? ''}
+          placeholder="my-application-uploads"
+          spellCheck={false}
+          onChange={(e) => set('defaultBucket', e.target.value)}
+        />
+        <span className="hint">
+          Opened when you start an S3 tab on this connection, and shown beside the name in the
+          sidebar so two connections to the same endpoint are told apart. It is not a
+          restriction — any bucket can still be typed.
+        </span>
+      </div>
+
+      <div className="field">
         <label>Endpoint</label>
         <input
           className="input input-mono"

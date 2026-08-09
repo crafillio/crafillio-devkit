@@ -10,7 +10,22 @@ import { isSealed, seal, unseal, type SealedValue } from './secrets.js';
 
 export interface SavedConnection extends S3Connection {
   id: string;
+  /**
+   * What you call this connection — "Production", "Staging MinIO".
+   *
+   * Kept separate from the bucket deliberately: one set of credentials often
+   * reaches several buckets, and naming the connection after one of them makes
+   * the others look like they belong somewhere else.
+   */
   name: string;
+  /**
+   * The bucket to open by default, if there is an obvious one.
+   *
+   * Optional, and not a restriction — any bucket can still be typed or picked.
+   * It exists so the sidebar can tell two connections to the same endpoint
+   * apart, and so opening a tab lands somewhere useful.
+   */
+  defaultBucket?: string;
 }
 
 type StoredConnection = Omit<SavedConnection, 'secretAccessKey' | 'sessionToken'> & {
