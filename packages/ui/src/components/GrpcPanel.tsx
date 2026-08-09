@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { FileCode2, Gauge, Loader2, RefreshCw, Send, Square, Plus, Trash2 } from 'lucide-react';
+import {
+  Camera, FileCode2, Gauge, Loader2, RefreshCw, Send, Square, Plus, Trash2 } from 'lucide-react';
 import type { GrpcEvent, GrpcRequest, GrpcSource } from '@crafillio/core';
 import { CodeEditor } from './CodeEditor';
+import { Split } from './Split';
+import { captureForGrpc } from '../lib/capture';
 import { KeyValueTable } from './KeyValueTable';
 import { formatMs } from '../lib/format';
 import { PerfPanel } from './PerfPanel';
@@ -187,9 +190,26 @@ export function GrpcPanel({ tab, onSend }: Props) {
             <Square size={13} /> Cancel
           </button>
         ) : (
-          <button className="btn btn-primary" onClick={onSend} disabled={!req.method}>
-            <Send size={14} /> Invoke
-          </button>
+          <>
+            <button
+              className="btn btn-icon"
+              title="Save a screenshot of this call and its response"
+              onClick={async () => {
+                try {
+                  const path = await window.crafillio.tools.capture(captureForGrpc(tab, true));
+                  if (path) toast('success', `Saved ${path}`);
+                } catch (err) {
+                  toast('error', (err as Error).message);
+                }
+              }}
+            >
+              <Camera size={14} />
+            </button>
+
+            <button className="btn btn-primary" onClick={onSend} disabled={!req.method}>
+              <Send size={14} /> Invoke
+            </button>
+          </>
         )}
       </div>
 
@@ -207,7 +227,9 @@ export function GrpcPanel({ tab, onSend }: Props) {
           <PerfPanel tab={tab} />
         </>
       ) : (
-      <div className="split">
+      <Split
+        id="grpc"
+        top={
         <div className="pane">
           <div className="subtabs">
             <button
@@ -311,10 +333,9 @@ export function GrpcPanel({ tab, onSend }: Props) {
           </div>
         </div>
 
-        <div className="splitter" />
-
-        <EventTimeline tab={tab} />
-      </div>
+        }
+        bottom={<EventTimeline tab={tab} />}
+      />
       )}
     </div>
   );

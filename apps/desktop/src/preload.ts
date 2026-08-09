@@ -102,6 +102,11 @@ const api: CrafillioApi = {
     exportReport: call('perf:exportReport'),
   },
 
+  tools: {
+    decodeJwt: call('tools:decodeJwt'),
+    capture: call('tools:capture'),
+  },
+
   workflow: {
     list: call('workflow:list'),
     create: call('workflow:create'),

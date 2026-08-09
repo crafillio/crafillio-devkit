@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Gauge, Send, Loader2 } from 'lucide-react';
+import { Camera, Gauge, Send, Loader2 } from 'lucide-react';
+import { captureForRest } from '../lib/capture';
 import type { Auth, HttpMethod, RestBody, RestRequest } from '@crafillio/core';
 import { KeyValueTable } from './KeyValueTable';
 import { BodyEditor } from './BodyEditor';
@@ -7,6 +8,7 @@ import { CodeEditor } from './CodeEditor';
 import { blankRow } from '../lib/defaults';
 import { useStore, type RestTab } from '../state/store';
 import { ResponsePanel } from './ResponsePanel';
+import { Split } from './Split';
 import { useT } from '../i18n';
 import { PerfPanel } from './PerfPanel';
 
@@ -19,6 +21,7 @@ interface Props {
 }
 
 export function RestPanel({ tab, onSend }: Props) {
+  const toast = useStore((state) => state.toast);
   const t = useT();
   const [sub, setSub] = useState<SubTab>('params');
   const patchTab = useStore((s) => s.patchTab);
@@ -57,6 +60,23 @@ export function RestPanel({ tab, onSend }: Props) {
           }}
         />
 
+        <button
+          className="btn btn-icon"
+          title="Save a screenshot of this request and its response"
+          onClick={async () => {
+            try {
+              // Secrets are redacted: a screenshot is the single most likely
+              // artefact to end up in a ticket or a chat thread.
+              const path = await window.crafillio.tools.capture(captureForRest(tab, true));
+              if (path) toast('success', `Saved ${path}`);
+            } catch (err) {
+              toast('error', (err as Error).message);
+            }
+          }}
+        >
+          <Camera size={14} />
+        </button>
+
         <button className="btn btn-primary" onClick={onSend} disabled={tab.sending}>
           {tab.sending ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
           {tab.sending ? t.request.sending : t.common.send}
@@ -76,7 +96,9 @@ export function RestPanel({ tab, onSend }: Props) {
           <PerfPanel tab={tab} />
         </>
       ) : (
-      <div className="split">
+      <Split
+        id="rest"
+        top={
         <div className="pane">
           <div className="subtabs">
             <Sub id="params" label={t.request.params} count={activeCount(req.query)} sub={sub} setSub={setSub} />
@@ -109,10 +131,9 @@ export function RestPanel({ tab, onSend }: Props) {
           </div>
         </div>
 
-        <div className="splitter" />
-
-        <ResponsePanel tab={tab} />
-      </div>
+        }
+        bottom={<ResponsePanel tab={tab} />}
+      />
       )}
     </div>
   );

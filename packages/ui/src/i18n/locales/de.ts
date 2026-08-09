@@ -45,7 +45,7 @@ export const messages: PartialMessages = {
     title: 'Netzwerk', proxy: 'Proxy', tls: 'TLS / SSL',
     useProxy: 'Anfragen über einen Proxy senden', proxyHost: 'Proxy-Host', port: 'Port',
     username: 'Benutzername', password: 'Passwort',
-    verifyTls: 'TLS-Zertifikate prüfen', clientCerts: 'Client-Zertifikate',
+    verifyTls: 'TLS-Zertifikate prüfen', ignoreTls: 'TLS-Zertifikatfehler ignorieren', clientCerts: 'Client-Zertifikate',
   },
   about: { title: 'Über', creator: 'Entwickler & Betreuer', viewProfile: 'GitHub-Profil', repository: 'Repository',
     dataFolder: 'Datenordner', secretStorage: 'Geheimnis-Speicher', builtWith: 'Erstellt mit' },

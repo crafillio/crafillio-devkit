@@ -156,12 +156,31 @@ export async function moveRequest(
   collectionId: string,
   requestId: string,
   folderId: string | null,
+  /**
+   * Place the request immediately before this one. Omitted or unknown puts it
+   * last in its folder. Order is the array order — the sidebar renders it
+   * directly, so reordering is a matter of moving the element.
+   */
+  beforeRequestId?: string | null,
 ): Promise<Collection> {
   const collection = await requireCollection(collectionId);
-  const request = collection.requests.find((r) => r.id === requestId);
-  if (!request) throw new Error('That request no longer exists.');
-  request.folderId = folderId;
-  request.updatedAt = now();
+  const index = collection.requests.findIndex((r) => r.id === requestId);
+  if (index === -1) throw new Error('That request no longer exists.');
+
+  const [request] = collection.requests.splice(index, 1);
+  request!.folderId = folderId;
+  request!.updatedAt = now();
+
+  // Resolved after the removal, so the index refers to the list the request is
+  // about to be inserted into rather than the one it just left.
+  const target =
+    beforeRequestId == null
+      ? -1
+      : collection.requests.findIndex((r) => r.id === beforeRequestId);
+
+  if (target === -1) collection.requests.push(request!);
+  else collection.requests.splice(target, 0, request!);
+
   return saveCollection(collection);
 }
 

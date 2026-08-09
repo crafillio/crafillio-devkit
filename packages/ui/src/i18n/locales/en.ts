@@ -144,7 +144,7 @@ export const en = {
     bypass: 'Bypass for these hosts',
     bypassHint:
       'Comma separated. A leading *. matches subdomains, so *.internal covers api.internal and internal itself.',
-    verifyTls: 'Verify TLS certificates',
+    verifyTls: 'Verify TLS certificates', ignoreTls: 'Ignore TLS certificate errors',
     verifyOffWarning:
       'With verification off, every response can be read and altered in transit by anything between you and the server. Use it for a local or staging box, not against production. Trusting a CA below is the safer way to work with a private root.',
     trustCa: 'Trust an additional CA',

@@ -7,6 +7,8 @@
  */
 
 import type {
+  CaptureInput,
+  DecodedJwt,
   Collection,
   Environment,
   GrpcEvent,
@@ -153,10 +155,13 @@ export interface CrafillioApi {
     removeRequest(collectionId: string, requestId: string): Promise<Collection>;
     createFolder(collectionId: string, name: string, parentId: string | null): Promise<Collection>;
     removeFolder(collectionId: string, folderId: string): Promise<Collection>;
+    /** Moves a request between folders and/or reorders it within one. */
     moveRequest(
       collectionId: string,
       requestId: string,
       folderId: string | null,
+      /** Insert before this request; omit to place last. */
+      beforeRequestId?: string | null,
     ): Promise<Collection>;
     exportToFile(collectionId: string): Promise<string | null>;
     importFromFile(): Promise<Collection | null>;
@@ -197,6 +202,21 @@ export interface CrafillioApi {
     onComplete(listener: (report: LoadReport) => void): () => void;
     /** Writes a finished run to CSV for sharing or archiving. */
     exportReport(report: LoadReport): Promise<string | null>;
+  };
+
+  /** Small utilities that need no network of their own. */
+  tools: {
+    /**
+     * Decodes a JWT. Decoding only — verifying a signature needs the issuer's
+     * key, which this app does not have, and implying otherwise would be worse
+     * than not offering it.
+     */
+    decodeJwt(token: string): Promise<DecodedJwt>;
+    /**
+     * Renders a request and response to a PNG and saves it. Returns the path,
+     * or null when the save dialog was dismissed.
+     */
+    capture(input: CaptureInput): Promise<string | null>;
   };
 
   /** Chained multi-step API workflows. */

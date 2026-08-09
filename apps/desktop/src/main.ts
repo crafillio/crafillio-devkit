@@ -25,6 +25,9 @@ import {
   importCurl,
   exportCurl,
   checkCondition,
+  decodeJwt,
+  renderCapture,
+  type CaptureInput,
   importPostmanCollection,
   importOpenApi,
   importHoppscotch,
@@ -500,6 +503,59 @@ function registerHandlers(): void {
   });
 
   /* Interop */
+  handle('tools:capture', async (input: CaptureInput) => {
+    const html = renderCapture(input);
+
+    // Rendered in its own window rather than captured from the app's: the app
+    // shows a viewport, and the point of this is to include the parts that
+    // scroll out of it. The window is sized to the content afterwards so
+    // nothing is cropped.
+    const shot = new BrowserWindow({
+      width: 1040,
+      height: 900,
+      show: false,
+      // JavaScript stays on only so the content height can be measured; the
+      // page itself carries a CSP that forbids scripts, so nothing in the
+      // captured data can run.
+      webPreferences: { offscreen: false, images: true, sandbox: true },
+    });
+
+    try {
+      await shot.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+      // The page is static, but a frame still has to be painted before the
+      // capture is anything but blank.
+      await new Promise((resolve) => setTimeout(resolve, 250));
+
+      const height = Math.min(
+        20000,
+        Math.ceil(
+          Number(await shot.webContents.executeJavaScript('document.body.scrollHeight')) || 900,
+        ),
+      );
+      shot.setContentSize(1040, height);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const image = await shot.webContents.capturePage();
+      const png = image.toPNG();
+      if (png.length < 1000) throw new Error('The capture came out blank.');
+
+      const safe = input.title.replace(/[^\w.-]+/g, '-').toLowerCase().replace(/^-|-$/g, '');
+      const result = await dialog.showSaveDialog({
+        title: 'Save screenshot',
+        defaultPath: `${safe || 'capture'}.png`,
+        filters: [{ name: 'PNG image', extensions: ['png'] }],
+      });
+      if (result.canceled || !result.filePath) return null;
+
+      await writeFile(result.filePath, png);
+      return result.filePath;
+    } finally {
+      shot.destroy();
+    }
+  });
+
+  handle('tools:decodeJwt', (token: string) => decodeJwt(token));
+
   handle('workflow:checkCondition', (expression: string) => checkCondition(expression));
 
   handle('interop:importCurl', (command: string) => importCurl(command));

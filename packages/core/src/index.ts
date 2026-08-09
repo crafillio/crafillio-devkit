@@ -74,6 +74,8 @@ export type {
 } from './workflow/types.js';
 
 export { tlsIgnored } from './store/settings.js';
+export { decodeJwt, looksLikeJwt, type DecodedJwt, type JwtClaim } from './tools/jwt.js';
+export { renderCapture, type CaptureInput, type CaptureSection } from './tools/capture.js';
 export { evaluateCondition, checkCondition, isTruthy } from './workflow/condition.js';
 export { importCurl, exportCurl } from './interop/curl.js';
 export { importPostmanCollection } from './interop/postman.js';

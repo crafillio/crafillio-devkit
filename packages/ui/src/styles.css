@@ -2006,3 +2006,94 @@ kbd {
   min-width: 120px;
   font-size: 11px;
 }
+
+/* The divider grows a grab area larger than its 5px line: a hairline is a
+   frustrating target, and the visible line should stay thin. */
+.splitter {
+  position: relative;
+}
+
+.splitter::after {
+  content: '';
+  position: absolute;
+  inset: -4px 0;
+  cursor: row-resize;
+}
+
+.splitter:focus-visible { background: var(--accent); outline: none; }
+.splitter.dragging { background: var(--accent); }
+
+/* ---------------------------------------------------------------- */
+/* JWT decoder                                                       */
+/* ---------------------------------------------------------------- */
+
+.jwt-input { resize: vertical; min-height: 74px; line-height: 1.5; word-break: break-all; }
+
+.jwt-summary { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 4px; }
+
+.jwt-chip {
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+
+.jwt-chip.good { color: var(--green); border-color: var(--green); background: var(--green-soft); }
+.jwt-chip.bad  { color: var(--red);   border-color: var(--red);   background: var(--red-soft); }
+.jwt-chip.muted { opacity: 0.75; }
+
+.jwt-claims td { vertical-align: top; padding-block: 7px; }
+.jwt-claims .jwt-value { word-break: break-all; }
+.jwt-claims .jwt-when { color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+
+/* The plain-English gloss sits under the claim name rather than in its own
+   column, which would push the value into a sliver on a narrow window. */
+.jwt-meaning {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--text-dim);
+}
+
+/* Inline tab rename. Sized to the tab so the strip does not jump when the
+   label turns into a field. */
+.tab-rename {
+  width: 120px;
+  padding: 1px 5px;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+  outline: none;
+}
+
+/* Drop indicator while reordering requests. A line on the edge you are
+   dropping against, rather than highlighting the whole row, which never says
+   whether the item lands above or below. */
+.request-row { position: relative; }
+
+.request-row.drop-above::before,
+.request-row.drop-below::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.request-row.drop-above::before { top: -1px; }
+.request-row.drop-below::after { bottom: -1px; }
+
+.request-row[draggable='true'] { cursor: grab; }
+.request-row:active { cursor: grabbing; }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Camera,
   AlertCircle,
   ArrowDown,
   CheckCircle2,
@@ -321,6 +322,63 @@ export function WorkflowPanel() {
               }}
             >
               <FileDown size={13} /> {t.workflow.exportPdf}
+            </button>
+
+            <button
+              className="btn btn-sm"
+              title="Save a screenshot of this run — every step, request and response"
+              onClick={async () => {
+                if (!result) return;
+                try {
+                  const path = await window.crafillio.tools.capture({
+                    title: `${current?.name ?? 'Workflow'} — run`,
+                    protocol: 'workflow',
+                    subtitle: `${result.steps.length} step${result.steps.length === 1 ? '' : 's'} · ${result.status}`,
+                    chips: [
+                      { label: result.status, tone: result.status === 'success' ? 'good' : 'bad' },
+                      { label: `${Math.round(result.durationMs)} ms` },
+                      {
+                        label: `${result.steps.filter((s) => s.status === 'success').length}/${result.steps.length} passed`,
+                      },
+                    ],
+                    capturedAt: new Date().toLocaleString(),
+                    // One block per step, so the image carries the whole run
+                    // rather than whichever stage happened to be selected.
+                    sections: result.steps.flatMap((step) => [
+                      {
+                        label: `${step.index + 1}. ${step.name} — ${step.status}`,
+                        kind: 'kv' as const,
+                        rows: [
+                          ['Protocol', step.protocol],
+                          ...(step.request ? ([['Request', `${step.request.method} ${step.request.url}`]] as Array<[string, string]>) : []),
+                          ...(step.response
+                            ? ([
+                                ['Response', `${step.response.statusLabel ?? step.response.status}`],
+                                ['Took', `${Math.round(step.response.timingMs)} ms`],
+                              ] as Array<[string, string]>)
+                            : []),
+                          ...(step.attempts && step.attempts > 1
+                            ? ([['Attempts', String(step.attempts)]] as Array<[string, string]>)
+                            : []),
+                          ...step.extractedOutputs.map((o) => [`→ ${o.name}`, o.value] as [string, string]),
+                          ...(step.error ? ([['Error', step.error]] as Array<[string, string]>) : []),
+                        ],
+                      },
+                      {
+                        label: `${step.index + 1}. Response body`,
+                        kind: 'code' as const,
+                        text: step.response?.body ?? '',
+                        emptyNote: 'No body',
+                      },
+                    ]),
+                  });
+                  if (path) toast('success', `Saved ${path}`);
+                } catch (err) {
+                  toast('error', (err as Error).message);
+                }
+              }}
+            >
+              <Camera size={13} /> Screenshot
             </button>
             <button
               className="btn btn-sm"

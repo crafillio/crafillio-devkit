@@ -335,6 +335,8 @@ export function installMockBridge(): void {
       };
     })(),
 
+    tools: { decodeJwt: notImplemented, capture: async () => null },
+
     workflow: {
       list: async () => [],
       create: notImplemented,

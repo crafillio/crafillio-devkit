@@ -412,6 +412,53 @@ function CollectionTree({
     );
   };
 
+  /**
+   * Applies a drag-and-drop reorder.
+   *
+   * Order is the stored array order, so this is a move within that list. A drop
+   * below a row means "before whatever follows it", which is why the target is
+   * resolved against the current order rather than an index captured earlier —
+   * the list may have changed since the drag began.
+   */
+  const reorder = async (
+    payload: string,
+    targetId: string,
+    side: 'above' | 'below',
+  ): Promise<void> => {
+    let dragged: { collectionId: string; requestId: string; folderId: string | null };
+    try {
+      dragged = JSON.parse(payload);
+    } catch {
+      return;
+    }
+    if (dragged.requestId === targetId) return;
+    if (dragged.collectionId !== collection.id) {
+      toast('error', 'Requests can only be reordered within their own collection.');
+      return;
+    }
+
+    const target = collection.requests.find((r) => r.id === targetId);
+    if (!target) return;
+
+    const order = collection.requests.filter((r) => r.id !== dragged.requestId);
+    const at = order.findIndex((r) => r.id === targetId);
+    const beforeId = side === 'above' ? targetId : (order[at + 1]?.id ?? null);
+
+    try {
+      // A drop also adopts the target's folder, so dragging into a folder works
+      // without a second gesture.
+      await window.crafillio.collections.moveRequest(
+        collection.id,
+        dragged.requestId,
+        target.folderId ?? null,
+        beforeId,
+      );
+      await onChanged();
+    } catch (err) {
+      toast('error', (err as Error).message);
+    }
+  };
+
   const renderRequest = (request: SavedRequest, depth: number): JSX.Element => (
     <RequestRow
       key={request.id}
@@ -420,6 +467,7 @@ function CollectionTree({
       collection={collection}
       onOpen={() => openSaved(collection, request)}
       onChanged={onChanged}
+      onReorder={reorder}
     />
   );
 
@@ -470,13 +518,17 @@ function RequestRow({
   collection,
   onOpen,
   onChanged,
+  onReorder,
 }: {
   request: SavedRequest;
   depth: number;
   collection: Collection;
   onOpen: () => void;
   onChanged: () => Promise<void>;
+  /** Handles a drop: raw payload, the row dropped on, and which side of it. */
+  onReorder: (payload: string, targetId: string, side: 'above' | 'below') => Promise<void>;
 }) {
+  const [dropSide, setDropSide] = useState<'above' | 'below' | null>(null);
   const t = useT();
   const toast = useStore((s) => s.toast);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -532,7 +584,42 @@ function RequestRow({
   };
 
   return (
-    <div className="tree-row request-row" style={{ paddingLeft: 10 + depth * 12 }} onClick={onOpen}>
+    <div
+      className={`tree-row request-row ${dropSide ? `drop-${dropSide}` : ''}`}
+      style={{ paddingLeft: 10 + depth * 12 }}
+      onClick={onOpen}
+      draggable
+      onDragStart={(e) => {
+        // The payload carries the collection too: dropping onto a row in a
+        // different collection has to be refused rather than silently losing
+        // the request.
+        e.dataTransfer.setData(
+          'application/x-crafillio-request',
+          JSON.stringify({ collectionId: collection.id, requestId: request.id, folderId: request.folderId ?? null }),
+        );
+        e.dataTransfer.effectAllowed = 'move';
+      }}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes('application/x-crafillio-request')) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        // Which half the pointer is over decides above-or-below, so a drop
+        // lands where the line is drawn rather than always before the row.
+        const box = e.currentTarget.getBoundingClientRect();
+        setDropSide(e.clientY < box.top + box.height / 2 ? 'above' : 'below');
+      }}
+      onDragLeave={() => setDropSide(null)}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const side = dropSide;
+        setDropSide(null);
+        const raw = e.dataTransfer.getData('application/x-crafillio-request');
+        if (!raw) return;
+        void onReorder(raw, request.id, side ?? 'above');
+      }}
+      onDragEnd={() => setDropSide(null)}
+    >
       <span className={`method-chip m-${chip}`}>{chip}</span>
       <span className="row-label">{request.name}</span>
 

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Globe, Info, Layers, Plus, Save, Terminal, Workflow as WorkflowIcon, X } from 'lucide-react';
+import { Globe, Info, Layers, Plus, Save, Terminal, Workflow as WorkflowIcon, X,
+  KeyRound,
+} from 'lucide-react';
 import type { GrpcEvent, SavedRequest } from '@crafillio/core';
 import { Sidebar } from './components/Sidebar';
 import { RestPanel } from './components/RestPanel';
@@ -13,6 +15,7 @@ import { DialogHost } from './components/DialogHost';
 import { Logo } from './components/Logo';
 import { ThemeToggle } from './components/ThemeToggle';
 import { NetworkModal } from './components/NetworkModal';
+import { JwtModal } from './components/JwtModal';
 import { LanguagePicker } from './components/LanguagePicker';
 import { Toasts } from './components/Toasts';
 import { useActiveTab, useStore, type GrpcTab, type RestTab } from './state/store';
@@ -28,6 +31,8 @@ export function App() {
   const [showEnvs, setShowEnvs] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showNetwork, setShowNetwork] = useState(false);
+  const [showJwt, setShowJwt] = useState(false);
+  const [renaming, setRenaming] = useState<string | null>(null);
   const [connectionModal, setConnectionModal] = useState<{ id: string | null } | null>(null);
 
   /*
@@ -335,6 +340,14 @@ export function App() {
           <Globe size={15} />
         </button>
 
+        <button
+          className="btn btn-icon"
+          onClick={() => setShowJwt(true)}
+          title="Decode a JWT"
+        >
+          <KeyRound size={15} />
+        </button>
+
         <LanguagePicker />
 
         <ThemeToggle />
@@ -363,7 +376,40 @@ export function App() {
                 >
                   {t.protocol === 'rest' ? t.request.method : t.protocol === 'workflow' ? 'FLOW' : t.protocol.toUpperCase()}
                 </span>
-                <span className="tab-label">{t.name}</span>
+                {renaming === t.id ? (
+                  // Renaming happens in place: a dialog for something this
+                  // small breaks the flow, and the tab is where the name lives.
+                  <input
+                    className="tab-rename"
+                    autoFocus
+                    defaultValue={t.name}
+                    onClick={(e) => e.stopPropagation()}
+                    onBlur={(e) => {
+                      const next = e.target.value.trim();
+                      if (next) store.renameTab(t.id, next);
+                      setRenaming(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      // Escape abandons the edit rather than committing it.
+                      else if (e.key === 'Escape') {
+                        (e.target as HTMLInputElement).value = t.name;
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="tab-label"
+                    title={`${t.name} — double-click to rename`}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setRenaming(t.id);
+                    }}
+                  >
+                    {t.name}
+                  </span>
+                )}
                 {t.dirty && <span className="tab-dirty" title="Unsaved changes" />}
                 <span
                   className="tab-close"
@@ -438,6 +484,7 @@ export function App() {
       {showEnvs && <EnvironmentsModal onClose={() => setShowEnvs(false)} />}
       {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
       {showNetwork && <NetworkModal onClose={() => setShowNetwork(false)} />}
+      {showJwt && <JwtModal onClose={() => setShowJwt(false)} />}
       {connectionModal && (
         <ConnectionModal
           connectionId={connectionModal.id}

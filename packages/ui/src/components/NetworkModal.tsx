@@ -244,31 +244,39 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
 
       {tab === 'tls' && (
         <>
-          <label className="inline-check">
+          {/* Stated as what it does rather than what it turns off: people come
+              to this screen looking for "ignore TLS", not for a verification
+              switch to uncheck. */}
+          <label className="inline-check inline-check-lead">
             <input
               type="checkbox"
               className="checkbox"
-              checked={tls.verify}
-              onChange={(e) => setTls({ ...tls, verify: e.target.checked })}
+              checked={!tls.verify}
+              onChange={(e) => setTls({ ...tls, verify: !e.target.checked })}
             />
-            {t.network.verifyTls}
+            {t.network.ignoreTls}
           </label>
+          <p className="field-note" style={{ marginTop: -6, marginLeft: 24 }}>
+            Applies to every host, every request — REST, gRPC and S3 alike.
+          </p>
 
           {!tls.verify && (
             <div className="warn-box" style={{ margin: 0 }}>
               <ShieldAlert size={13} style={{ verticalAlign: -2, marginRight: 6 }} />
-              With verification off, every response can be read and altered in transit by anything
-              between you and the server — for every host, not just the one you were trying to
-              reach. Prefer the ignore list below, which scopes it to the hosts you name.
+              Certificates are not checked for anything. Every response can be read and altered in
+              transit by whatever sits between you and the server, including hosts you did not mean
+              to include. If it is really one staging box, name it below instead and leave the rest
+              protected.
             </div>
           )}
 
           <div className="field">
-            <label>Ignore TLS errors for these hosts</label>
+            <label>Or ignore only these hosts</label>
             <input
               className="input input-mono"
               value={(tls.ignoreHosts ?? []).join(', ')}
               placeholder="staging.internal, *.dev.local, localhost"
+              disabled={!tls.verify}
               onChange={(e) =>
                 setTls({
                   ...tls,
@@ -278,9 +286,10 @@ export function NetworkModal({ onClose }: { onClose: () => void }) {
             />
             <span className="hint">
               Comma separated, same matching as the proxy bypass list: a leading <code>*.</code>{' '}
-              covers subdomains. These hosts skip certificate checks even while verification stays
-              on everywhere else — which is usually what you actually want, rather than turning it
-              off for everything because one staging box has a self-signed certificate.
+              covers subdomains. These hosts skip certificate checks while everything else stays
+              protected — usually what you actually want, rather than turning checks off globally
+              because one staging box has a self-signed certificate.
+              {!tls.verify && ' Not in use while everything is being ignored above.'}
             </span>
           </div>
 
