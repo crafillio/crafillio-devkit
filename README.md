@@ -114,9 +114,11 @@ shows a SmartScreen notice. There is no installer for Linux — this is distribu
 Windows only.
 
 **Windows will warn that the publisher is unknown, and Defender may flag
-`ffmpeg.dll`.** Both are expected for an unsigned Electron build — `ffmpeg.dll`
-is a standard Electron component that cannot be removed without breaking the
-app. [What this means, how to verify the download, and what is being done about
+`ffmpeg.dll` or block it under Attack Surface Reduction.** All of that is
+expected for an unsigned Electron build — `ffmpeg.dll` is a standard Electron
+component that cannot be removed without breaking the app. If ASR blocks it,
+choosing **Anyone who uses this computer** at install time usually clears it.
+[Full explanation, how to verify the download, and what is being done about
 it](docs/WINDOWS.md).
 
 ## Getting started

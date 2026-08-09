@@ -90,7 +90,21 @@ module.exports = {
     artifactName: 'APIDevkit-windows-setup.${ext}',
     oneClick: false,
     allowToChangeInstallationDirectory: true,
+
+    // Default to a per-user install so nothing needs administrator rights,
+    // while keeping the option to elevate and install to Program Files.
+    // (allowElevation defaults to true; it is stated here because the reason
+    // matters and a future edit should not drop it silently.)
+    //
+    // That choice matters more than it looks. A per-user install lands in
+    // %LOCALAPPDATA%\\Programs, which is user-writable, and Defender's Attack
+    // Surface Reduction rules — "use advanced protection against ransomware"
+    // in particular — treat unsigned binaries in user-writable locations with
+    // far more suspicion than the same binary under Program Files. Offering
+    // the elevated option gives someone hitting that block a way through that
+    // does not involve weakening a security policy.
     perMachine: false,
+    allowElevation: true,
   },
 
   // macOS and Windows only — the platforms this is distributed for.

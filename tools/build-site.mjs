@@ -370,7 +370,8 @@ const body = `
       Every build is on the <a href="${esc(RELEASES)}">releases page</a>, including checksums.
       They are unsigned for now: macOS asks you to confirm the first launch (right-click → Open),
       and Windows shows a SmartScreen notice and may flag <code>ffmpeg.dll</code> — a standard
-      Electron component, and a known false positive.
+      Electron component, and a known false positive. If Attack Surface Reduction blocks it,
+      choose “Anyone who uses this computer” when installing.
       <a href="${esc(REPO)}/blob/main/docs/WINDOWS.md">What that means and how to verify the
       download</a>.
     </p>
